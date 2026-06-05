@@ -1,6 +1,7 @@
 package com.zhaoyuchen.androidforward.forward
 
 import android.content.Context
+import com.zhaoyuchen.androidforward.bluetooth.BluetoothSilenceManager
 import com.zhaoyuchen.androidforward.data.AppSettingsRepository
 import com.zhaoyuchen.androidforward.data.ForwardLogRepository
 import com.zhaoyuchen.androidforward.data.SecureStore
@@ -42,6 +43,10 @@ object RetryQueue {
             val repository = AppSettingsRepository(context)
             val settings = repository.load()
             if (!settings.retryEnabled) return
+            if (BluetoothSilenceManager.findConnectedMutedDevice(context, settings) != null) {
+                RetryScheduler.schedule(context)
+                return
+            }
 
             val barkKey = repository.getBarkKey()
             if (barkKey.isBlank()) return

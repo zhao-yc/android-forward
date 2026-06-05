@@ -18,6 +18,10 @@ class AppSettingsRepository(context: Context) {
             smsEnabled = prefs.getBoolean(KEY_SMS_ENABLED, true),
             phoneEnabled = prefs.getBoolean(KEY_PHONE_ENABLED, true),
             retryEnabled = prefs.getBoolean(KEY_RETRY_ENABLED, true),
+            bluetoothSilenceEnabled = prefs.getBoolean(KEY_BLUETOOTH_SILENCE_ENABLED, false),
+            mutedBluetoothAddresses = prefs.getStringSet(KEY_MUTED_BLUETOOTH_ADDRESSES, emptySet())
+                ?: emptySet(),
+            keepAliveNotificationEnabled = prefs.getBoolean(KEY_KEEP_ALIVE_NOTIFICATION_ENABLED, false),
             filteredPackages = prefs.getStringSet(KEY_FILTERED_PACKAGES, DEFAULT_FILTERED_PACKAGES)
                 ?: DEFAULT_FILTERED_PACKAGES
         )
@@ -31,6 +35,9 @@ class AppSettingsRepository(context: Context) {
             .putBoolean(KEY_SMS_ENABLED, settings.smsEnabled)
             .putBoolean(KEY_PHONE_ENABLED, settings.phoneEnabled)
             .putBoolean(KEY_RETRY_ENABLED, settings.retryEnabled)
+            .putBoolean(KEY_BLUETOOTH_SILENCE_ENABLED, settings.bluetoothSilenceEnabled)
+            .putStringSet(KEY_MUTED_BLUETOOTH_ADDRESSES, settings.mutedBluetoothAddresses)
+            .putBoolean(KEY_KEEP_ALIVE_NOTIFICATION_ENABLED, settings.keepAliveNotificationEnabled)
             .putStringSet(KEY_FILTERED_PACKAGES, settings.filteredPackages)
             .apply()
     }
@@ -53,6 +60,9 @@ class AppSettingsRepository(context: Context) {
         private const val KEY_SMS_ENABLED = "sms_enabled"
         private const val KEY_PHONE_ENABLED = "phone_enabled"
         private const val KEY_RETRY_ENABLED = "retry_enabled"
+        private const val KEY_BLUETOOTH_SILENCE_ENABLED = "bluetooth_silence_enabled"
+        private const val KEY_MUTED_BLUETOOTH_ADDRESSES = "muted_bluetooth_addresses"
+        private const val KEY_KEEP_ALIVE_NOTIFICATION_ENABLED = "keep_alive_notification_enabled"
         private const val KEY_FILTERED_PACKAGES = "filtered_packages"
 
         const val DEFAULT_BARK_SERVER_URL = "https://api.day.app"

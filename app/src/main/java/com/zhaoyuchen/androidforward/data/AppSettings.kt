@@ -9,5 +9,8 @@ data class AppSettings(
     val smsEnabled: Boolean = true,
     val phoneEnabled: Boolean = true,
     val retryEnabled: Boolean = true,
+    val bluetoothSilenceEnabled: Boolean = false,
+    val mutedBluetoothAddresses: Set<String> = emptySet(),
+    val keepAliveNotificationEnabled: Boolean = false,
     val filteredPackages: Set<String> = AppSettingsRepository.DEFAULT_FILTERED_PACKAGES
 )

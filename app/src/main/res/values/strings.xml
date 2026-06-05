@@ -4,4 +4,7 @@
     <string name="phone_monitor_channel_name">电话监听状态</string>
     <string name="phone_monitor_notification_title">通知转发正在监听电话状态</string>
     <string name="phone_monitor_notification_body">用于把安卓来电和未接来电转发到 iPhone</string>
+    <string name="keep_alive_channel_name">运行状态</string>
+    <string name="keep_alive_notification_title">通知转发正在运行</string>
+    <string name="keep_alive_notification_body">看到这条通知，说明应用进程仍在运行</string>
 </resources>

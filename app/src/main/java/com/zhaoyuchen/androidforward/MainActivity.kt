@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -46,11 +47,14 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.zhaoyuchen.androidforward.bluetooth.BluetoothDeviceInfo
+import com.zhaoyuchen.androidforward.bluetooth.BluetoothSilenceManager
 import com.zhaoyuchen.androidforward.data.AppSettings
 import com.zhaoyuchen.androidforward.data.AppSettingsRepository
 import com.zhaoyuchen.androidforward.data.ForwardLogItem
 import com.zhaoyuchen.androidforward.data.ForwardLogRepository
 import com.zhaoyuchen.androidforward.forward.ForwardDispatcher
+import com.zhaoyuchen.androidforward.service.KeepAliveService
 import com.zhaoyuchen.androidforward.service.PhoneMonitorService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -69,6 +73,9 @@ class MainActivity : ComponentActivity() {
                     openBatterySettings = ::openBatterySettings,
                     onPhoneEnabledChanged = { enabled ->
                         if (enabled) PhoneMonitorService.startIfNeeded(this) else PhoneMonitorService.stop(this)
+                    },
+                    onKeepAliveNotificationChanged = { enabled ->
+                        if (enabled) KeepAliveService.startIfNeeded(this) else KeepAliveService.stop(this)
                     }
                 )
             }
@@ -100,7 +107,8 @@ class MainActivity : ComponentActivity() {
 private fun AndroidForwardScreen(
     openNotificationSettings: () -> Unit,
     openBatterySettings: () -> Unit,
-    onPhoneEnabledChanged: (Boolean) -> Unit
+    onPhoneEnabledChanged: (Boolean) -> Unit,
+    onKeepAliveNotificationChanged: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val settingsRepository = remember { AppSettingsRepository(context) }
@@ -112,6 +120,9 @@ private fun AndroidForwardScreen(
     var filterText by remember {
         mutableStateOf(settings.filteredPackages.sorted().joinToString(separator = "\n"))
     }
+    var bluetoothDevices by remember {
+        mutableStateOf(BluetoothSilenceManager.listBondedDevices(context))
+    }
     var logs by remember { mutableStateOf(logRepository.list()) }
     var statusText by remember { mutableStateOf("等待配置") }
 
@@ -119,6 +130,12 @@ private fun AndroidForwardScreen(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
         statusText = "权限状态已更新"
+    }
+    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        bluetoothDevices = BluetoothSilenceManager.listBondedDevices(context)
+        statusText = "蓝牙权限状态已更新"
     }
 
     /** 保存设置并同步 Compose 状态。 */
@@ -209,6 +226,17 @@ private fun AndroidForwardScreen(
             )
 
             HorizontalDivider()
+            SectionTitle("运行状态")
+            FeatureSwitch(
+                title = "常驻状态通知",
+                checked = settings.keepAliveNotificationEnabled,
+                onCheckedChange = {
+                    persist(settings.copy(keepAliveNotificationEnabled = it))
+                    onKeepAliveNotificationChanged(it)
+                }
+            )
+
+            HorizontalDivider()
             SectionTitle("权限")
             PermissionRow(
                 title = "通知使用权",
@@ -217,16 +245,53 @@ private fun AndroidForwardScreen(
                 onClick = openNotificationSettings
             )
             PermissionRow(
-                title = "短信和电话权限",
+                title = "短信、电话和通知权限",
                 granted = hasRuntimePermissions(context),
                 actionText = "申请",
                 onClick = { permissionLauncher.launch(requiredRuntimePermissions()) }
+            )
+            PermissionRow(
+                title = "蓝牙设备权限",
+                granted = hasBluetoothPermission(context),
+                actionText = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) "申请" else "无需",
+                onClick = {
+                    val permissions = requiredBluetoothPermissions()
+                    if (permissions.isEmpty()) {
+                        bluetoothDevices = BluetoothSilenceManager.listBondedDevices(context)
+                        statusText = "当前系统无需蓝牙运行时权限"
+                    } else {
+                        bluetoothPermissionLauncher.launch(permissions)
+                    }
+                }
             )
             PermissionRow(
                 title = "省电白名单",
                 granted = isIgnoringBatteryOptimizations(context),
                 actionText = "打开",
                 onClick = openBatterySettings
+            )
+
+            HorizontalDivider()
+            BluetoothSilenceSection(
+                settings = settings,
+                devices = bluetoothDevices,
+                permissionGranted = hasBluetoothPermission(context),
+                onRefresh = {
+                    BluetoothSilenceManager.refreshConnectedDeviceCacheAsync(context)
+                    bluetoothDevices = BluetoothSilenceManager.listBondedDevices(context)
+                    statusText = "蓝牙设备列表已刷新"
+                },
+                onEnabledChange = { enabled ->
+                    persist(settings.copy(bluetoothSilenceEnabled = enabled))
+                },
+                onDeviceCheckedChange = { address, checked ->
+                    val nextAddresses = if (checked) {
+                        settings.mutedBluetoothAddresses + address
+                    } else {
+                        settings.mutedBluetoothAddresses - address
+                    }
+                    persist(settings.copy(mutedBluetoothAddresses = nextAddresses))
+                }
             )
 
             HorizontalDivider()
@@ -300,6 +365,68 @@ private fun FeatureSwitch(title: String, checked: Boolean, onCheckedChange: (Boo
     ) {
         Text(text = title, style = MaterialTheme.typography.bodyLarge)
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun BluetoothSilenceSection(
+    settings: AppSettings,
+    devices: List<BluetoothDeviceInfo>,
+    permissionGranted: Boolean,
+    onRefresh: () -> Unit,
+    onEnabledChange: (Boolean) -> Unit,
+    onDeviceCheckedChange: (String, Boolean) -> Unit
+) {
+    SectionTitle("蓝牙静默")
+    FeatureSwitch(
+        title = "连接所选设备时静默",
+        checked = settings.bluetoothSilenceEnabled,
+        onCheckedChange = onEnabledChange
+    )
+    OutlinedButton(onClick = onRefresh) {
+        Text("刷新蓝牙设备")
+    }
+    if (!permissionGranted) {
+        Text("授权后显示已配对设备", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
+    }
+    if (devices.isEmpty()) {
+        Text("暂无已配对设备", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
+    }
+    devices.forEach { device ->
+        BluetoothDeviceRow(
+            device = device,
+            checked = settings.mutedBluetoothAddresses.contains(device.address),
+            onCheckedChange = { checked -> onDeviceCheckedChange(device.address, checked) }
+        )
+    }
+}
+
+@Composable
+private fun BluetoothDeviceRow(
+    device: BluetoothDeviceInfo,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = device.name, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = if (device.connected) "已连接" else "未连接",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (device.connected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+        }
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -387,11 +514,25 @@ private fun requiredRuntimePermissions(): Array<String> {
     }.toTypedArray()
 }
 
+/** Android 12 以后读取已配对蓝牙设备和连接状态需要 BLUETOOTH_CONNECT。 */
+private fun requiredBluetoothPermissions(): Array<String> {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        arrayOf(Manifest.permission.BLUETOOTH_CONNECT)
+    } else {
+        emptyArray()
+    }
+}
+
 /** 检查短信、电话和通知展示权限是否都已允许。 */
 private fun hasRuntimePermissions(context: Context): Boolean {
     return requiredRuntimePermissions().all { permission ->
         ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
     }
+}
+
+/** 检查蓝牙设备读取权限。 */
+private fun hasBluetoothPermission(context: Context): Boolean {
+    return BluetoothSilenceManager.hasBluetoothPermission(context)
 }
 
 /** 检查通知监听权限。 */

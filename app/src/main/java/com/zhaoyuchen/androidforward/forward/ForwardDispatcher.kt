@@ -1,6 +1,7 @@
 package com.zhaoyuchen.androidforward.forward
 
 import android.content.Context
+import com.zhaoyuchen.androidforward.bluetooth.BluetoothSilenceManager
 import com.zhaoyuchen.androidforward.data.AppSettingsRepository
 import com.zhaoyuchen.androidforward.data.ForwardLogRepository
 import java.text.SimpleDateFormat
@@ -99,6 +100,15 @@ object ForwardDispatcher {
         val settings = settingsRepository.load()
         val logs = ForwardLogRepository(appContext)
         val barkKey = settingsRepository.getBarkKey()
+
+        if (allowRetry) {
+            val mutedDeviceName = BluetoothSilenceManager.findConnectedMutedDevice(appContext, settings)
+            if (mutedDeviceName != null) {
+                val result = ForwardResult(true, "蓝牙静默：$mutedDeviceName")
+                logs.add(payload.type.displayTitle, payload.source, true, result.detail)
+                return result
+            }
+        }
 
         if (barkKey.isBlank()) {
             val result = ForwardResult(false, "Bark Key 为空")
