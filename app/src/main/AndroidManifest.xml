@@ -83,6 +83,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".receiver.KeepAliveWatchdogReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".receiver.BluetoothConnectionReceiver"
             android:exported="false">
             <intent-filter>
