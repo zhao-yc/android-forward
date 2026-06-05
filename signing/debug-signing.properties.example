@@ -1,0 +1,4 @@
+storeFile=keystore/android-forward-debug.jks
+storePassword=change-me
+keyAlias=androidforward
+keyPassword=change-me

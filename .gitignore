@@ -1,0 +1,12 @@
+.gradle/
+.gradle-docker-cache/
+build/
+local.properties
+captures/
+*.iml
+.idea/
+app/build/
+keystore/*.jks
+keystore/*.keystore
+signing/debug-signing.properties
+.github-deploy-key/

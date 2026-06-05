@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">通知转发</string>
+    <string name="notification_listener_label">通知转发监听服务</string>
+    <string name="phone_monitor_channel_name">电话监听状态</string>
+    <string name="phone_monitor_notification_title">通知转发正在监听电话状态</string>
+    <string name="phone_monitor_notification_body">用于把安卓来电和未接来电转发到 iPhone</string>
+</resources>
