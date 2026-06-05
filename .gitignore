@@ -10,3 +10,4 @@ keystore/*.jks
 keystore/*.keystore
 signing/debug-signing.properties
 .github-deploy-key/
+.playwright-mcp/
