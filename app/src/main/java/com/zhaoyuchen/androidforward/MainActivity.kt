@@ -34,6 +34,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -148,6 +149,18 @@ private fun AndroidForwardScreen(
         }
     }
 
+    /** 后台连接缓存变化后读取最新快照，并自动更新界面显示。 */
+    fun updateBluetoothDevicesFromCache() {
+        scope.launch {
+            val devices = withContext(Dispatchers.IO) {
+                BluetoothSilenceManager.listBondedDevices(context)
+            }
+            bluetoothDevices = devices
+            val connectedCount = devices.count { it.connected }
+            statusText = "蓝牙状态已自动更新，当前连接 $connectedCount 个"
+        }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
@@ -173,6 +186,16 @@ private fun AndroidForwardScreen(
     LaunchedEffect(Unit) {
         if (BluetoothSilenceManager.hasBluetoothPermission(context)) {
             refreshBluetoothDevices()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        val listener: () -> Unit = {
+            updateBluetoothDevicesFromCache()
+        }
+        BluetoothSilenceManager.addConnectionStateListener(listener)
+        onDispose {
+            BluetoothSilenceManager.removeConnectionStateListener(listener)
         }
     }
 

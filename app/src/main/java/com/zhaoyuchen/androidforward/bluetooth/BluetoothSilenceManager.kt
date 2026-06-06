@@ -11,6 +11,7 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import com.zhaoyuchen.androidforward.data.AppSettings
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.TimeUnit
 
 /**
@@ -20,6 +21,17 @@ object BluetoothSilenceManager {
     private const val PREFS_NAME = "android_forward_bluetooth"
     private const val KEY_CONNECTED_ADDRESSES = "connected_addresses"
     private const val PROFILE_QUERY_TIMEOUT_MS = 1_200L
+    private val connectionStateListeners = CopyOnWriteArraySet<() -> Unit>()
+
+    /** 设置页可见期间注册监听器，连接快照变化后用于实时刷新界面。 */
+    fun addConnectionStateListener(listener: () -> Unit) {
+        connectionStateListeners.add(listener)
+    }
+
+    /** 设置页离开时移除监听器，避免持有已经销毁的 Compose 状态。 */
+    fun removeConnectionStateListener(listener: () -> Unit) {
+        connectionStateListeners.remove(listener)
+    }
 
     /** Android 12 以后读取蓝牙设备信息需要运行时 BLUETOOTH_CONNECT 权限。 */
     fun hasBluetoothPermission(context: Context): Boolean {
@@ -221,10 +233,21 @@ object BluetoothSilenceManager {
     }
 
     private fun saveConnectedAddresses(context: Context, addresses: Set<String>) {
+        val normalizedAddresses = addresses.toSet()
+        if (loadCachedConnectedAddresses(context) == normalizedAddresses) return
+
         context.applicationContext
             .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putStringSet(KEY_CONNECTED_ADDRESSES, addresses.toSet())
+            .putStringSet(KEY_CONNECTED_ADDRESSES, normalizedAddresses)
             .apply()
+        notifyConnectionStateChanged()
+    }
+
+    /** 通知当前进程内的界面监听器，监听器自行切换到主线程更新 UI。 */
+    private fun notifyConnectionStateChanged() {
+        connectionStateListeners.forEach { listener ->
+            runCatching { listener() }
+        }
     }
 }
