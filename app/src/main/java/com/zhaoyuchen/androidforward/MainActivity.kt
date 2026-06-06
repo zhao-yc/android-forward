@@ -56,6 +56,7 @@ import com.zhaoyuchen.androidforward.data.AppSettingsRepository
 import com.zhaoyuchen.androidforward.data.ForwardLogItem
 import com.zhaoyuchen.androidforward.data.ForwardLogRepository
 import com.zhaoyuchen.androidforward.forward.ForwardDispatcher
+import com.zhaoyuchen.androidforward.receiver.BluetoothConnectionReceiver
 import com.zhaoyuchen.androidforward.service.KeepAliveService
 import com.zhaoyuchen.androidforward.service.PhoneMonitorService
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +67,9 @@ import kotlinx.coroutines.withContext
  * 设置页入口。所有操作都即时写入本地配置，方便系统监听服务读取最新状态。
  */
 class MainActivity : ComponentActivity() {
+    private val foregroundBluetoothReceiver = BluetoothConnectionReceiver()
+    private var foregroundBluetoothReceiverRegistered = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -82,6 +86,43 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        registerForegroundBluetoothReceiver()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 厂商系统可能漏发后台广播，返回设置页时主动校准一次连接快照。
+        BluetoothSilenceManager.refreshConnectedDeviceCacheAsync(this)
+    }
+
+    override fun onStop() {
+        unregisterForegroundBluetoothReceiver()
+        super.onStop()
+    }
+
+    /** 页面可见时动态监听蓝牙广播，提升厂商系统上的断开事件到达率。 */
+    private fun registerForegroundBluetoothReceiver() {
+        if (foregroundBluetoothReceiverRegistered) return
+        runCatching {
+            ContextCompat.registerReceiver(
+                this,
+                foregroundBluetoothReceiver,
+                BluetoothConnectionReceiver.intentFilter(),
+                ContextCompat.RECEIVER_EXPORTED
+            )
+            foregroundBluetoothReceiverRegistered = true
+        }
+    }
+
+    /** 页面不可见时注销动态接收器，避免重复接收和持有 Activity。 */
+    private fun unregisterForegroundBluetoothReceiver() {
+        if (!foregroundBluetoothReceiverRegistered) return
+        runCatching { unregisterReceiver(foregroundBluetoothReceiver) }
+        foregroundBluetoothReceiverRegistered = false
     }
 
     /** 打开系统通知使用权页面，用户需要手动允许本应用。 */

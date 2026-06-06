@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import com.zhaoyuchen.androidforward.bluetooth.BluetoothSilenceManager
 import com.zhaoyuchen.androidforward.forward.RetryQueue
@@ -33,6 +34,28 @@ class BluetoothConnectionReceiver : BroadcastReceiver() {
                     connected = false
                 )
                 RetryQueue.flushAsync(context)
+            }
+
+            BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED -> {
+                val state = intent.getIntExtra(
+                    BluetoothAdapter.EXTRA_CONNECTION_STATE,
+                    BluetoothAdapter.STATE_DISCONNECTED
+                )
+                val device = readBluetoothDevice(intent)
+                if (state == BluetoothAdapter.STATE_CONNECTED) {
+                    BluetoothSilenceManager.updateConnectedDeviceCacheFromBroadcast(
+                        context,
+                        device,
+                        connected = true
+                    )
+                } else if (state == BluetoothAdapter.STATE_DISCONNECTED) {
+                    BluetoothSilenceManager.updateConnectedDeviceCacheFromBroadcast(
+                        context,
+                        device,
+                        connected = false
+                    )
+                    RetryQueue.flushAsync(context)
+                }
             }
 
             ACTION_A2DP_CONNECTION_STATE_CHANGED,
@@ -92,5 +115,19 @@ class BluetoothConnectionReceiver : BroadcastReceiver() {
             "android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED"
         private const val ACTION_HEARING_AID_CONNECTION_STATE_CHANGED =
             "android.bluetooth.hearingaid.profile.action.CONNECTION_STATE_CHANGED"
+
+        /** 后台清单接收器和前台动态接收器共用同一组系统广播。 */
+        fun intentFilter(): IntentFilter {
+            return IntentFilter().apply {
+                addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
+                addAction(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED)
+                addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+                addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+                addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
+                addAction(ACTION_A2DP_CONNECTION_STATE_CHANGED)
+                addAction(ACTION_HEADSET_CONNECTION_STATE_CHANGED)
+                addAction(ACTION_HEARING_AID_CONNECTION_STATE_CHANGED)
+            }
+        }
     }
 }

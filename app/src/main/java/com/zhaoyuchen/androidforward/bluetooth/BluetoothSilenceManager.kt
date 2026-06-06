@@ -43,10 +43,15 @@ object BluetoothSilenceManager {
             ) == PackageManager.PERMISSION_GRANTED
     }
 
-    /** 设置页读取已配对设备；没有权限时返回空列表，由 UI 引导用户授权。 */
+    /**
+     * 设置页读取已配对设备和缓存中的连接快照。
+     *
+     * 这里不能再次调用隐藏的 isConnected()；部分系统断开后该方法仍会短暂返回 true，
+     * 会覆盖广播刚写入的断开状态，导致界面看起来没有自动刷新。
+     */
     fun listBondedDevices(context: Context): List<BluetoothDeviceInfo> {
         if (!hasBluetoothPermission(context)) return emptyList()
-        val connectedAddresses = queryConnectedAddresses(context, allowProfileQuery = false)
+        val connectedAddresses = loadCachedConnectedAddresses(context)
         return buildDeviceInfoList(context, connectedAddresses)
     }
 
@@ -55,7 +60,7 @@ object BluetoothSilenceManager {
      */
     fun refreshAndListBondedDevices(context: Context): List<BluetoothDeviceInfo> {
         if (!hasBluetoothPermission(context)) return emptyList()
-        val connectedAddresses = queryConnectedAddresses(context, allowProfileQuery = true)
+        val connectedAddresses = queryConnectedAddresses(context)
         return buildDeviceInfoList(context, connectedAddresses)
     }
 
@@ -83,7 +88,7 @@ object BluetoothSilenceManager {
         if (settings.mutedBluetoothAddresses.isEmpty()) return null
         if (!hasBluetoothPermission(context)) return null
 
-        val connectedAddresses = queryConnectedAddresses(context, allowProfileQuery = true)
+        val connectedAddresses = queryConnectedAddresses(context)
         val mutedAddress = settings.mutedBluetoothAddresses.firstOrNull { address ->
             connectedAddresses.contains(address)
         } ?: return null
@@ -104,7 +109,7 @@ object BluetoothSilenceManager {
             if (delayMillis > 0L) {
                 runCatching { Thread.sleep(delayMillis) }
             }
-            queryConnectedAddresses(appContext, allowProfileQuery = true)
+            queryConnectedAddresses(appContext)
         }.start()
     }
 
@@ -168,17 +173,13 @@ object BluetoothSilenceManager {
      * 完整 Profile 查询完成后，结果会覆盖旧缓存，而不是与旧缓存做并集；
      * 否则已经断开的设备会永久残留在“已连接”状态。
      */
-    private fun queryConnectedAddresses(context: Context, allowProfileQuery: Boolean): Set<String> {
+    private fun queryConnectedAddresses(context: Context): Set<String> {
         if (!hasBluetoothPermission(context)) return emptySet()
         val directAddresses = getBondedDevices(context)
             .filter { isConnectedByReflection(it) }
             .map { readDeviceAddress(it) }
             .filter { it.isNotBlank() }
             .toSet()
-
-        if (!allowProfileQuery) {
-            return directAddresses + loadCachedConnectedAddresses(context)
-        }
 
         val result = directAddresses + queryProfileConnectedAddresses(context)
         saveConnectedAddresses(context, result)
