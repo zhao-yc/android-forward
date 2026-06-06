@@ -34,6 +34,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -123,8 +124,29 @@ private fun AndroidForwardScreen(
     var bluetoothDevices by remember {
         mutableStateOf(BluetoothSilenceManager.listBondedDevices(context))
     }
+    var bluetoothRefreshing by remember { mutableStateOf(false) }
     var logs by remember { mutableStateOf(logRepository.list()) }
     var statusText by remember { mutableStateOf("等待配置") }
+
+    /** 在后台线程完整查询蓝牙 Profile，完成后再刷新 Compose 列表。 */
+    fun refreshBluetoothDevices() {
+        if (bluetoothRefreshing) return
+        bluetoothRefreshing = true
+        statusText = "正在刷新蓝牙设备"
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { BluetoothSilenceManager.refreshAndListBondedDevices(context) }
+            }
+            result.onSuccess { devices ->
+                bluetoothDevices = devices
+                val connectedCount = devices.count { it.connected }
+                statusText = "蓝牙设备列表已刷新，当前连接 $connectedCount 个"
+            }.onFailure { error ->
+                statusText = "刷新蓝牙设备失败：${error.message ?: "未知错误"}"
+            }
+            bluetoothRefreshing = false
+        }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -134,14 +156,24 @@ private fun AndroidForwardScreen(
     val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
-        bluetoothDevices = BluetoothSilenceManager.listBondedDevices(context)
-        statusText = "蓝牙权限状态已更新"
+        if (BluetoothSilenceManager.hasBluetoothPermission(context)) {
+            refreshBluetoothDevices()
+        } else {
+            bluetoothDevices = emptyList()
+            statusText = "未获得蓝牙设备权限"
+        }
     }
 
     /** 保存设置并同步 Compose 状态。 */
     fun persist(next: AppSettings) {
         settings = next
         settingsRepository.save(next)
+    }
+
+    LaunchedEffect(Unit) {
+        if (BluetoothSilenceManager.hasBluetoothPermission(context)) {
+            refreshBluetoothDevices()
+        }
     }
 
     Surface(
@@ -257,8 +289,7 @@ private fun AndroidForwardScreen(
                 onClick = {
                     val permissions = requiredBluetoothPermissions()
                     if (permissions.isEmpty()) {
-                        bluetoothDevices = BluetoothSilenceManager.listBondedDevices(context)
-                        statusText = "当前系统无需蓝牙运行时权限"
+                        refreshBluetoothDevices()
                     } else {
                         bluetoothPermissionLauncher.launch(permissions)
                     }
@@ -276,11 +307,8 @@ private fun AndroidForwardScreen(
                 settings = settings,
                 devices = bluetoothDevices,
                 permissionGranted = hasBluetoothPermission(context),
-                onRefresh = {
-                    BluetoothSilenceManager.refreshConnectedDeviceCacheAsync(context)
-                    bluetoothDevices = BluetoothSilenceManager.listBondedDevices(context)
-                    statusText = "蓝牙设备列表已刷新"
-                },
+                refreshing = bluetoothRefreshing,
+                onRefresh = ::refreshBluetoothDevices,
                 onEnabledChange = { enabled ->
                     persist(settings.copy(bluetoothSilenceEnabled = enabled))
                 },
@@ -373,6 +401,7 @@ private fun BluetoothSilenceSection(
     settings: AppSettings,
     devices: List<BluetoothDeviceInfo>,
     permissionGranted: Boolean,
+    refreshing: Boolean,
     onRefresh: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
     onDeviceCheckedChange: (String, Boolean) -> Unit
@@ -383,8 +412,8 @@ private fun BluetoothSilenceSection(
         checked = settings.bluetoothSilenceEnabled,
         onCheckedChange = onEnabledChange
     )
-    OutlinedButton(onClick = onRefresh) {
-        Text("刷新蓝牙设备")
+    OutlinedButton(onClick = onRefresh, enabled = !refreshing) {
+        Text(if (refreshing) "正在刷新" else "刷新蓝牙设备")
     }
     if (!permissionGranted) {
         Text("授权后显示已配对设备", color = MaterialTheme.colorScheme.onSurfaceVariant)
