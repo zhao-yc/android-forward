@@ -26,12 +26,12 @@ class BluetoothConnectionReceiver : BroadcastReceiver() {
             }
 
             BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
+                val device = readBluetoothDevice(intent)
                 BluetoothSilenceManager.updateConnectedDeviceCacheFromBroadcast(
                     context,
-                    readBluetoothDevice(intent),
+                    device,
                     connected = false
                 )
-                BluetoothSilenceManager.refreshConnectedDeviceCacheAsync(context, PROFILE_SETTLE_DELAY_MS)
                 RetryQueue.flushAsync(context)
             }
 
@@ -39,16 +39,22 @@ class BluetoothConnectionReceiver : BroadcastReceiver() {
             ACTION_HEADSET_CONNECTION_STATE_CHANGED,
             ACTION_HEARING_AID_CONNECTION_STATE_CHANGED -> {
                 val state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, BluetoothProfile.STATE_DISCONNECTED)
+                val device = readBluetoothDevice(intent)
                 if (state == BluetoothProfile.STATE_CONNECTED) {
                     BluetoothSilenceManager.updateConnectedDeviceCacheFromBroadcast(
                         context,
-                        readBluetoothDevice(intent),
+                        device,
                         connected = true
                     )
-                }
-                // 单个 Profile 断开不代表设备完全断开，延迟完整查询后再覆盖缓存。
-                BluetoothSilenceManager.refreshConnectedDeviceCacheAsync(context, PROFILE_SETTLE_DELAY_MS)
-                if (state == BluetoothProfile.STATE_DISCONNECTED) {
+                    BluetoothSilenceManager.refreshConnectedDeviceCacheAsync(context, PROFILE_SETTLE_DELAY_MS)
+                } else if (state == BluetoothProfile.STATE_DISCONNECTED) {
+                    // 先让界面立即显示断开，再复核设备是否仍通过其他 Profile 连接。
+                    BluetoothSilenceManager.updateConnectedDeviceCacheFromBroadcast(
+                        context,
+                        device,
+                        connected = false
+                    )
+                    BluetoothSilenceManager.verifyDisconnectedDeviceAsync(context, device)
                     RetryQueue.flushAsync(context)
                 }
             }

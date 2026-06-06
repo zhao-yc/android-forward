@@ -21,6 +21,7 @@ object BluetoothSilenceManager {
     private const val PREFS_NAME = "android_forward_bluetooth"
     private const val KEY_CONNECTED_ADDRESSES = "connected_addresses"
     private const val PROFILE_QUERY_TIMEOUT_MS = 1_200L
+    private val DISCONNECT_VERIFY_DELAYS_MS = longArrayOf(1_000L, 3_000L, 6_000L)
     private val connectionStateListeners = CopyOnWriteArraySet<() -> Unit>()
 
     /** 设置页可见期间注册监听器，连接快照变化后用于实时刷新界面。 */
@@ -104,6 +105,36 @@ object BluetoothSilenceManager {
                 runCatching { Thread.sleep(delayMillis) }
             }
             queryConnectedAddresses(appContext, allowProfileQuery = true)
+        }.start()
+    }
+
+    /**
+     * 设备断开后分阶段复核它是否仍通过其他 Profile 保持连接。
+     *
+     * 这里只修正目标设备，避免底层 ACL 尚未释放时把刚断开的设备重新写回缓存，
+     * 也避免一个 Profile 断开时误伤仍通过其他 Profile 连接的设备。
+     */
+    fun verifyDisconnectedDeviceAsync(context: Context, device: BluetoothDevice?) {
+        if (!hasBluetoothPermission(context) || device == null) return
+        val appContext = context.applicationContext
+        val address = readDeviceAddress(device)
+        if (address.isBlank()) return
+
+        Thread {
+            var previousDelay = 0L
+            DISCONNECT_VERIFY_DELAYS_MS.forEach { delay ->
+                runCatching { Thread.sleep(delay - previousDelay) }
+                previousDelay = delay
+
+                val profileAddresses = queryProfileConnectedAddresses(appContext)
+                val addresses = loadCachedConnectedAddresses(appContext).toMutableSet()
+                if (profileAddresses.contains(address)) {
+                    addresses.add(address)
+                } else {
+                    addresses.remove(address)
+                }
+                saveConnectedAddresses(appContext, addresses)
+            }
         }.start()
     }
 
