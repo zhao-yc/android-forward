@@ -4,50 +4,56 @@
 
 **Goal:** 将启动图标替换为原创的“双手机通知转发”标志，并提供 Android 13 主题图标。
 
-**Architecture:** 继续使用现有 Android Adaptive Icon 结构。普通启动图标由深黑背景色和多色前景矢量组成；Android 13 主题图标通过 `mipmap-anydpi-v33` 自适应图标配置引用单色前景矢量。
+**Architecture:** 继续使用现有 Android Adaptive Icon 结构。普通启动图标使用 Image 2 生成的 PNG 彩色前景；Android 13 主题图标通过 `mipmap-anydpi-v33` 自适应图标配置引用单色前景矢量。
 
-**Tech Stack:** Android VectorDrawable、Adaptive Icon XML、Gradle、Docker
+**Tech Stack:** PNG、Android VectorDrawable、Adaptive Icon XML、Gradle、Docker
 
 ---
 
-### Task 1: 更新普通自适应图标
+### Task 1: 接入 Image 2 彩色启动图标
 
 **Files:**
-- Modify: `app/src/main/res/values/colors.xml`
-- Modify: `app/src/main/res/drawable/ic_launcher_foreground.xml`
+- Create: `app/src/main/res/drawable-nodpi/ic_launcher_image2.png`
+- Create: `app/src/main/res/drawable/ic_launcher_image2_foreground.xml`
+- Modify: `app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml`
+- Modify: `app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml`
+- Modify: `app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml`
+- Modify: `app/src/main/res/mipmap-anydpi-v33/ic_launcher_round.xml`
+- Delete: `app/src/main/res/drawable/ic_launcher_foreground.xml`
 
-- [x] **Step 1: 检查当前资源仍使用旧青绿色和消息气泡**
-
-Run:
-
-```bash
-rg '#0D9488|M27,34c0,-4.42' app/src/main/res/values/colors.xml app/src/main/res/drawable/ic_launcher_foreground.xml
-```
-
-Expected: 命中旧背景色和旧消息气泡路径。
-
-- [x] **Step 2: 将背景色替换为深黑色**
-
-将 `ic_launcher_background` 更新为 `#111827`。
-
-- [x] **Step 3: 将前景矢量替换为原创双手机与橙色箭头**
-
-前景图形包含：
-
-- 左侧白色手机外框和绿色发送通知气泡。
-- 中间橙色向右箭头。
-- 右侧白色手机外框和浅蓝色接收通知气泡。
-- 所有主体控制在自适应图标安全区域内。
-
-- [x] **Step 4: 检查旧图形与旧背景色已移除**
+- [x] **Step 1: 将用户选中的 Image 2 图片复制到 Android 资源目录**
 
 Run:
 
 ```bash
-rg '#0D9488|M27,34c0,-4.42' app/src/main/res/values/colors.xml app/src/main/res/drawable/ic_launcher_foreground.xml
+cp /Users/zhaoyuchen/.codex/generated_images/019e92df-05e2-73d1-bfca-23a6473baeb4/ig_0e4af0cbf3843217016a2fb3a2bf9481919f6055ac10f8b027.png \
+  app/src/main/res/drawable-nodpi/ic_launcher_image2.png
 ```
 
-Expected: 无输出，命令退出码为 1。
+Expected: 项目内生成 `ic_launcher_image2.png`。
+
+- [x] **Step 2: 创建铺满自适应图标前景的 BitmapDrawable**
+
+`ic_launcher_image2_foreground.xml` 使用 `android:gravity="fill"` 引用 Image 2 图片。
+
+- [x] **Step 3: 更新普通、圆形和 Android 13 彩色图标引用**
+
+四个 Adaptive Icon 配置均将前景改为：
+
+```xml
+<foreground android:drawable="@drawable/ic_launcher_image2_foreground" />
+```
+
+- [x] **Step 4: 删除不再使用的手绘彩色前景矢量**
+
+Run:
+
+```bash
+test ! -f app/src/main/res/drawable/ic_launcher_foreground.xml
+rg 'ic_launcher_image2_foreground' app/src/main/res/mipmap-anydpi-v26 app/src/main/res/mipmap-anydpi-v33
+```
+
+Expected: 旧矢量不存在；四个 Adaptive Icon 配置均引用 Image 2 前景。
 
 ### Task 2: 增加 Android 13 主题图标
 
@@ -78,7 +84,7 @@ Expected: 三条命令均成功。
 
 ```xml
 <background android:drawable="@color/ic_launcher_background" />
-<foreground android:drawable="@drawable/ic_launcher_foreground" />
+<foreground android:drawable="@drawable/ic_launcher_image2_foreground" />
 <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
 ```
 
@@ -96,7 +102,8 @@ Expected: 普通与圆形自适应图标配置各命中一次。
 
 **Files:**
 - Modify: `.gitignore`
-- Verify: `app/src/main/res/drawable/ic_launcher_foreground.xml`
+- Verify: `app/src/main/res/drawable-nodpi/ic_launcher_image2.png`
+- Verify: `app/src/main/res/drawable/ic_launcher_image2_foreground.xml`
 - Verify: `app/src/main/res/drawable/ic_launcher_monochrome.xml`
 - Verify: `app/build/outputs/apk/debug/app-debug.apk`
 
