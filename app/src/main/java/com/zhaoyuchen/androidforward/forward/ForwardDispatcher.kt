@@ -33,6 +33,7 @@ object ForwardDispatcher {
     fun forwardNotification(
         context: Context,
         appName: String,
+        packageName: String,
         title: String,
         text: String
     ) {
@@ -46,7 +47,8 @@ object ForwardDispatcher {
             type = ForwardType.NOTIFICATION,
             source = appName,
             title = "通知：$appName",
-            body = body
+            body = body,
+            sourcePackage = packageName
         )
         sendAsync(context, payload, allowRetry = true)
     }
@@ -105,19 +107,37 @@ object ForwardDispatcher {
             val mutedDeviceName = BluetoothSilenceManager.findConnectedMutedDevice(appContext, settings)
             if (mutedDeviceName != null) {
                 val result = ForwardResult(true, "蓝牙静默：$mutedDeviceName")
-                logs.add(payload.type.displayTitle, payload.source, true, result.detail)
+                logs.add(
+                    payload.type.displayTitle,
+                    payload.source,
+                    true,
+                    result.detail,
+                    payload.sourcePackage
+                )
                 return result
             }
         }
 
         if (barkKey.isBlank()) {
             val result = ForwardResult(false, "Bark Key 为空")
-            logs.add(payload.type.displayTitle, payload.source, false, result.detail)
+            logs.add(
+                payload.type.displayTitle,
+                payload.source,
+                false,
+                result.detail,
+                payload.sourcePackage
+            )
             return result
         }
 
         val result = BarkClient.send(settings.barkServerUrl, barkKey, payload)
-        logs.add(payload.type.displayTitle, payload.source, result.success, result.detail)
+        logs.add(
+            payload.type.displayTitle,
+            payload.source,
+            result.success,
+            result.detail,
+            payload.sourcePackage
+        )
 
         if (!result.success && allowRetry && settings.retryEnabled) {
             RetryQueue.enqueue(appContext, payload)

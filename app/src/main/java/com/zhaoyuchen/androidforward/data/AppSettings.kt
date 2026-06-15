@@ -12,5 +12,5 @@ data class AppSettings(
     val bluetoothSilenceEnabled: Boolean = false,
     val mutedBluetoothAddresses: Set<String> = emptySet(),
     val keepAliveNotificationEnabled: Boolean = false,
-    val filteredPackages: Set<String> = AppSettingsRepository.DEFAULT_FILTERED_PACKAGES
+    val filteredPackages: Set<String> = AppSettingsRepository.BUILTIN_FILTERED_PACKAGES
 )

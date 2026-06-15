@@ -10,18 +10,23 @@ data class ForwardPayload(
     val source: String,
     val title: String,
     val body: String,
+    val sourcePackage: String? = null,
     val group: String = "安卓转发",
     val level: String = "active"
 ) {
     /** 序列化用于加密重试队列。 */
     fun toJson(): JSONObject {
-        return JSONObject()
+        val json = JSONObject()
             .put("type", type.name)
             .put("source", source)
             .put("title", title)
             .put("body", body)
             .put("group", group)
             .put("level", level)
+        sourcePackage
+            ?.takeIf { it.isNotBlank() }
+            ?.let { json.put("sourcePackage", it) }
+        return json
     }
 
     companion object {
@@ -32,6 +37,7 @@ data class ForwardPayload(
                 source = json.optString("source"),
                 title = json.getString("title"),
                 body = json.getString("body"),
+                sourcePackage = json.optString("sourcePackage").takeIf { it.isNotBlank() },
                 group = json.optString("group", "安卓转发"),
                 level = json.optString("level", "active")
             )

@@ -57,7 +57,13 @@ object RetryQueue {
             for (item in load(context)) {
                 val result = BarkClient.send(settings.barkServerUrl, barkKey, item.payload)
                 if (result.success) {
-                    logs.add(item.payload.type.displayTitle, item.payload.source, true, "重试成功")
+                    logs.add(
+                        item.payload.type.displayTitle,
+                        item.payload.source,
+                        true,
+                        "重试成功",
+                        item.payload.sourcePackage
+                    )
                 } else {
                     val nextAttempts = item.attempts + 1
                     if (nextAttempts < MAX_ATTEMPTS) {
@@ -67,7 +73,8 @@ object RetryQueue {
                             item.payload.type.displayTitle,
                             item.payload.source,
                             false,
-                            "重试超过上限：${result.detail}"
+                            "重试超过上限：${result.detail}",
+                            item.payload.sourcePackage
                         )
                     }
                 }

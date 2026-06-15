@@ -160,9 +160,6 @@ private fun AndroidForwardScreen(
 
     var settings by remember { mutableStateOf(settingsRepository.load()) }
     var barkKey by remember { mutableStateOf(settingsRepository.getBarkKey()) }
-    var filterText by remember {
-        mutableStateOf(settings.filteredPackages.sorted().joinToString(separator = "\n"))
-    }
     var bluetoothDevices by remember {
         mutableStateOf(BluetoothSilenceManager.listBondedDevices(context))
     }
@@ -220,8 +217,26 @@ private fun AndroidForwardScreen(
 
     /** 保存设置并同步 Compose 状态。 */
     fun persist(next: AppSettings) {
-        settings = next
-        settingsRepository.save(next)
+        val normalized = next.copy(
+            filteredPackages = next.filteredPackages + AppSettingsRepository.BUILTIN_FILTERED_PACKAGES
+        )
+        settings = normalized
+        settingsRepository.save(normalized)
+    }
+
+    /** 即时切换指定应用的过滤状态，内置防循环过滤项不会被移除。 */
+    fun updatePackageFilter(packageName: String, filtered: Boolean) {
+        if (packageName.isBlank() || packageName in AppSettingsRepository.BUILTIN_FILTERED_PACKAGES) {
+            return
+        }
+        val nextPackages = if (filtered) {
+            settings.filteredPackages + packageName
+        } else {
+            settings.filteredPackages - packageName
+        }
+        persist(settings.copy(filteredPackages = nextPackages))
+        val appName = resolveApplicationName(context, packageName)
+        statusText = if (filtered) "已过滤：$appName" else "已恢复转发：$appName"
     }
 
     LaunchedEffect(Unit) {
@@ -387,31 +402,17 @@ private fun AndroidForwardScreen(
             )
 
             HorizontalDivider()
-            SectionTitle("应用过滤")
-            OutlinedTextField(
-                value = filterText,
-                onValueChange = { filterText = it },
-                label = { Text("包名，一行一个") },
-                minLines = 4,
-                modifier = Modifier.fillMaxWidth()
+            FilteredAppsSection(
+                context = context,
+                filteredPackages = settings.filteredPackages,
+                onRemove = { packageName -> updatePackageFilter(packageName, filtered = false) }
             )
-            OutlinedButton(
-                onClick = {
-                    val packages = filterText
-                        .lineSequence()
-                        .map { it.trim() }
-                        .filter { it.isNotBlank() }
-                        .toSet()
-                    persist(settings.copy(filteredPackages = packages))
-                    statusText = "过滤列表已保存"
-                }
-            ) {
-                Text("保存过滤列表")
-            }
 
             HorizontalDivider()
             LogSection(
                 logs = logs,
+                filteredPackages = settings.filteredPackages,
+                onFilterChanged = ::updatePackageFilter,
                 onRefresh = { logs = logRepository.list() },
                 onClear = {
                     logRepository.clear()
@@ -554,8 +555,57 @@ private fun PermissionRow(
 }
 
 @Composable
+private fun FilteredAppsSection(
+    context: Context,
+    filteredPackages: Set<String>,
+    onRemove: (String) -> Unit
+) {
+    val customPackages = filteredPackages - AppSettingsRepository.BUILTIN_FILTERED_PACKAGES
+    val apps = remember(customPackages) {
+        customPackages
+            .map { packageName ->
+                FilteredAppInfo(
+                    name = resolveApplicationName(context, packageName),
+                    packageName = packageName
+                )
+            }
+            .sortedWith(compareBy<FilteredAppInfo> { it.name }.thenBy { it.packageName })
+    }
+
+    SectionTitle("已过滤应用")
+    if (apps.isEmpty()) {
+        Text(
+            text = "暂无自定义过滤应用，可在最近状态中直接选择",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
+    }
+    apps.forEach { app ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = app.name, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = app.packageName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            TextButton(onClick = { onRemove(app.packageName) }) {
+                Text("取消过滤")
+            }
+        }
+    }
+}
+
+@Composable
 private fun LogSection(
     logs: List<ForwardLogItem>,
+    filteredPackages: Set<String>,
+    onFilterChanged: (String, Boolean) -> Unit,
     onRefresh: () -> Unit,
     onClear: () -> Unit
 ) {
@@ -572,27 +622,65 @@ private fun LogSection(
         Text("暂无日志", color = MaterialTheme.colorScheme.onSurfaceVariant)
     } else {
         logs.take(12).forEach { item ->
-            LogRow(item)
+            LogRow(
+                item = item,
+                filtered = item.sourcePackage?.let(filteredPackages::contains) ?: false,
+                onFilterChanged = onFilterChanged
+            )
             Spacer(modifier = Modifier.height(4.dp))
         }
     }
 }
 
 @Composable
-private fun LogRow(item: ForwardLogItem) {
+private fun LogRow(
+    item: ForwardLogItem,
+    filtered: Boolean,
+    onFilterChanged: (String, Boolean) -> Unit
+) {
     val time = android.text.format.DateFormat.format("MM-dd HH:mm:ss", item.time).toString()
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = "$time  ${item.type}  ${if (item.success) "成功" else "失败"}",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            text = "${item.source} · ${item.detail}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "$time  ${item.type}  ${if (item.success) "成功" else "失败"}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "${item.source} · ${item.detail}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        item.sourcePackage
+            ?.takeUnless { it in AppSettingsRepository.BUILTIN_FILTERED_PACKAGES }
+            ?.let { packageName ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "过滤", style = MaterialTheme.typography.bodySmall)
+                    Checkbox(
+                        checked = filtered,
+                        onCheckedChange = { checked -> onFilterChanged(packageName, checked) }
+                    )
+                }
+            }
     }
+}
+
+private data class FilteredAppInfo(
+    val name: String,
+    val packageName: String
+)
+
+/** 根据包名解析应用名称；应用已卸载或查询失败时回退显示包名。 */
+private fun resolveApplicationName(context: Context, packageName: String): String {
+    return runCatching {
+        val info = context.packageManager.getApplicationInfo(packageName, 0)
+        context.packageManager.getApplicationLabel(info).toString()
+    }.getOrDefault(packageName)
 }
 
 /** 返回运行时危险权限列表，按系统版本跳过不存在的权限。 */

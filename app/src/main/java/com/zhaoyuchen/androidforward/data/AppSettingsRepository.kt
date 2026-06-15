@@ -22,8 +22,9 @@ class AppSettingsRepository(context: Context) {
             mutedBluetoothAddresses = prefs.getStringSet(KEY_MUTED_BLUETOOTH_ADDRESSES, emptySet())
                 ?: emptySet(),
             keepAliveNotificationEnabled = prefs.getBoolean(KEY_KEEP_ALIVE_NOTIFICATION_ENABLED, false),
-            filteredPackages = prefs.getStringSet(KEY_FILTERED_PACKAGES, DEFAULT_FILTERED_PACKAGES)
-                ?: DEFAULT_FILTERED_PACKAGES
+            filteredPackages = (
+                prefs.getStringSet(KEY_FILTERED_PACKAGES, emptySet()) ?: emptySet()
+            ) + BUILTIN_FILTERED_PACKAGES
         )
     }
 
@@ -38,7 +39,7 @@ class AppSettingsRepository(context: Context) {
             .putBoolean(KEY_BLUETOOTH_SILENCE_ENABLED, settings.bluetoothSilenceEnabled)
             .putStringSet(KEY_MUTED_BLUETOOTH_ADDRESSES, settings.mutedBluetoothAddresses)
             .putBoolean(KEY_KEEP_ALIVE_NOTIFICATION_ENABLED, settings.keepAliveNotificationEnabled)
-            .putStringSet(KEY_FILTERED_PACKAGES, settings.filteredPackages)
+            .putStringSet(KEY_FILTERED_PACKAGES, settings.filteredPackages + BUILTIN_FILTERED_PACKAGES)
             .apply()
     }
 
@@ -67,7 +68,8 @@ class AppSettingsRepository(context: Context) {
 
         const val DEFAULT_BARK_SERVER_URL = "https://api.day.app"
 
-        val DEFAULT_FILTERED_PACKAGES = setOf(
+        /** 内置防循环过滤项始终生效，不允许用户从设置页移除。 */
+        val BUILTIN_FILTERED_PACKAGES = setOf(
             "com.zhaoyuchen.androidforward",
             "me.fin.bark",
             "me.fin.bark.beta",

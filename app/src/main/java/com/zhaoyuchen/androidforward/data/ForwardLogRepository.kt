@@ -12,7 +12,13 @@ class ForwardLogRepository(context: Context) {
     private val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     /** 增加一条日志，并把总数限制在最近 100 条。 */
-    fun add(type: String, source: String, success: Boolean, detail: String) {
+    fun add(
+        type: String,
+        source: String,
+        success: Boolean,
+        detail: String,
+        sourcePackage: String? = null
+    ) {
         val current = loadJsonArray()
         val item = JSONObject()
             .put("time", System.currentTimeMillis())
@@ -20,6 +26,9 @@ class ForwardLogRepository(context: Context) {
             .put("source", source.take(80))
             .put("success", success)
             .put("detail", detail.take(160))
+        sourcePackage
+            ?.takeIf { it.isNotBlank() }
+            ?.let { item.put("sourcePackage", it.take(200)) }
 
         val next = JSONArray().put(item)
         for (index in 0 until minOf(current.length(), MAX_LOG_ITEMS - 1)) {
@@ -41,7 +50,8 @@ class ForwardLogRepository(context: Context) {
                         type = item.optString("type"),
                         source = item.optString("source"),
                         success = item.optBoolean("success"),
-                        detail = item.optString("detail")
+                        detail = item.optString("detail"),
+                        sourcePackage = item.optString("sourcePackage").takeIf { it.isNotBlank() }
                     )
                 )
             }
@@ -71,5 +81,6 @@ data class ForwardLogItem(
     val type: String,
     val source: String,
     val success: Boolean,
-    val detail: String
+    val detail: String,
+    val sourcePackage: String? = null
 )

@@ -25,7 +25,7 @@ class ForwardNotificationListener : NotificationListenerService() {
         if (title.isBlank() && text.isBlank()) return
 
         if (isDuplicate(packageName, title, text)) return
-        ForwardDispatcher.forwardNotification(this, appName, title, text)
+        ForwardDispatcher.forwardNotification(this, appName, packageName, title, text)
     }
 
     /** 从通知 Extras 中读取标题，兼容普通标题和大标题。 */
