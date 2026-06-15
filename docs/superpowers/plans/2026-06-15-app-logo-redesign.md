@@ -138,7 +138,7 @@ git status --short
 
 Expected: APK 存在；工作区仅包含 Logo 资源、实现计划和视觉讨论临时目录。
 
-- [ ] **Step 4: 提交并推送实现**
+- [x] **Step 4: 提交并推送实现**
 
 Run:
 
