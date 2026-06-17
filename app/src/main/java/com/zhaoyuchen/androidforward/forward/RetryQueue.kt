@@ -1,10 +1,12 @@
 package com.zhaoyuchen.androidforward.forward
 
 import android.content.Context
+import com.zhaoyuchen.androidforward.R
 import com.zhaoyuchen.androidforward.bluetooth.BluetoothSilenceManager
 import com.zhaoyuchen.androidforward.data.AppSettingsRepository
 import com.zhaoyuchen.androidforward.data.ForwardLogRepository
 import com.zhaoyuchen.androidforward.data.SecureStore
+import com.zhaoyuchen.androidforward.localization.localizedString
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -55,13 +57,13 @@ object RetryQueue {
             val logs = ForwardLogRepository(context)
 
             for (item in load(context)) {
-                val result = BarkClient.send(settings.barkServerUrl, barkKey, item.payload)
+                val result = BarkClient.send(context, settings.barkServerUrl, barkKey, item.payload)
                 if (result.success) {
                     logs.add(
-                        item.payload.type.displayTitle,
+                        item.payload.type.title(context),
                         item.payload.source,
                         true,
-                        "重试成功",
+                        context.localizedString(R.string.forward_retry_success),
                         item.payload.sourcePackage
                     )
                 } else {
@@ -70,10 +72,10 @@ object RetryQueue {
                         remaining.add(item.copy(attempts = nextAttempts))
                     } else {
                         logs.add(
-                            item.payload.type.displayTitle,
+                            item.payload.type.title(context),
                             item.payload.source,
                             false,
-                            "重试超过上限：${result.detail}",
+                            context.localizedString(R.string.forward_retry_limit, result.detail),
                             item.payload.sourcePackage
                         )
                     }

@@ -6,7 +6,6 @@ package com.zhaoyuchen.androidforward.data
 data class AppSettings(
     val barkServerUrl: String = AppSettingsRepository.DEFAULT_BARK_SERVER_URL,
     val notificationEnabled: Boolean = true,
-    val smsEnabled: Boolean = true,
     val phoneEnabled: Boolean = true,
     val retryEnabled: Boolean = true,
     val bluetoothSilenceEnabled: Boolean = false,

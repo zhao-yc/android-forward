@@ -1,0 +1,125 @@
+<resources>
+    <string name="app_name">通知转发</string>
+    <string name="notification_listener_label">通知转发监听服务</string>
+    <string name="keep_alive_channel_name">运行状态</string>
+    <string name="keep_alive_notification_title">通知转发正在运行</string>
+    <string name="keep_alive_notification_body">看到这条通知，说明应用进程仍在运行</string>
+
+    <string name="section_bark">Bark</string>
+    <string name="section_forwarding">转发</string>
+    <string name="section_runtime_status">运行状态</string>
+    <string name="section_permissions">权限</string>
+    <string name="section_bluetooth_silence">蓝牙静默</string>
+    <string name="section_app_filter">应用过滤</string>
+    <string name="section_recent_status">最近状态</string>
+
+    <string name="bark_key">Bark Key</string>
+    <string name="bark_server_url">Bark 服务地址</string>
+    <string name="feature_system_notifications">系统通知</string>
+    <string name="feature_phone">电话</string>
+    <string name="feature_retry">失败重试</string>
+    <string name="feature_keep_alive_notification">常驻状态通知</string>
+    <string name="feature_silence_selected_bluetooth">连接所选设备时静默</string>
+
+    <string name="permission_notification_access">通知使用权</string>
+    <string name="permission_runtime">电话和通知权限</string>
+    <string name="permission_bluetooth">蓝牙设备权限</string>
+    <string name="permission_battery">省电白名单</string>
+    <string name="permission_granted">已允许</string>
+    <string name="permission_not_granted">未允许</string>
+
+    <string name="action_save">保存</string>
+    <string name="action_test_push">测试推送</string>
+    <string name="action_open">打开</string>
+    <string name="action_request">申请</string>
+    <string name="action_not_required">无需</string>
+    <string name="action_refresh">刷新</string>
+    <string name="action_refreshing">正在刷新</string>
+    <string name="action_clear">清空</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_done">完成</string>
+    <string name="action_close">关闭</string>
+    <string name="action_add">新增</string>
+    <string name="action_remove_filter">取消过滤</string>
+    <string name="action_language">切换语言</string>
+    <string name="action_help">帮助</string>
+
+    <string name="status_waiting_configuration">等待配置</string>
+    <string name="status_refreshing_bluetooth">正在刷新蓝牙设备</string>
+    <string name="status_bluetooth_refresh_failed">刷新蓝牙设备失败：%1$s</string>
+    <string name="status_permissions_updated">权限状态已更新</string>
+    <string name="status_bluetooth_permission_denied">未获得蓝牙设备权限</string>
+    <string name="status_forwarding_restored">已恢复转发：%1$s</string>
+    <string name="status_bark_key_saved">Bark Key 已保存</string>
+    <string name="status_sending_test">正在发送测试推送</string>
+    <string name="status_test_success">测试推送成功</string>
+    <string name="status_test_failed">测试推送失败：%1$s</string>
+    <string name="status_logs_cleared">日志已清空</string>
+    <string name="unknown_error">未知错误</string>
+
+    <string name="bluetooth_permission_hint">授权后显示已配对设备</string>
+    <string name="bluetooth_empty">暂无已配对设备</string>
+    <string name="bluetooth_connected">已连接</string>
+    <string name="bluetooth_disconnected">未连接</string>
+    <string name="unknown_bluetooth_device">未知蓝牙设备</string>
+
+    <string name="app_filter_empty">暂无自定义过滤应用</string>
+    <string name="logs_empty">暂无日志</string>
+    <string name="result_success">成功</string>
+    <string name="result_failure">失败</string>
+    <string name="log_row_format">%1$s  %2$s  %3$s</string>
+
+    <string name="language_title">语言</string>
+    <string name="language_follow_system">跟随系统</string>
+    <string name="language_chinese_simplified">简体中文</string>
+    <string name="language_english">English</string>
+
+    <string name="picker_title">新增过滤应用</string>
+    <string name="picker_search_hint">搜索应用或包名</string>
+    <string name="picker_recent_apps">最近通知过</string>
+    <string name="picker_other_apps">其他应用</string>
+    <string name="picker_loading">正在加载应用…</string>
+    <string name="picker_load_failed">无法加载应用列表</string>
+    <string name="picker_empty">暂无可选应用</string>
+    <plurals name="status_bluetooth_refreshed">
+        <item quantity="other">蓝牙设备列表已刷新，当前连接 %1$d 个</item>
+    </plurals>
+    <plurals name="status_bluetooth_auto_updated">
+        <item quantity="other">蓝牙状态已自动更新，当前连接 %1$d 个</item>
+    </plurals>
+    <plurals name="status_filters_added">
+        <item quantity="other">已新增 %1$d 个应用过滤</item>
+    </plurals>
+    <plurals name="picker_selected_count">
+        <item quantity="other">已选择 %1$d 个</item>
+    </plurals>
+
+    <string name="help_bark">Bark 是一款 iOS 推送通知工具，可以通过 HTTP API 把安卓端转发的通知和电话信息推送到 iPhone、iPad 或 Mac。请先在苹果设备安装 Bark，下载地址：https://apps.apple.com/app/bark-custom-notifications/id1403753865。填写 Bark Key 和服务地址后，消息才能推送到 iPhone。“测试推送”用于验证配置。通知内容（包括短信应用展示的短信通知）和电话内容会以明文发送到所配置的 Bark 服务。</string>
+    <string name="help_permissions">通知使用权用于读取系统通知；电话权限用于转发来电信息；蓝牙权限用于静默规则；加入省电白名单可以提升后台运行可靠性。</string>
+    <string name="help_bluetooth_silence">开启后，只要任一所选蓝牙设备处于连接状态，应用就会暂停 Bark 转发。连接状态是否及时上报取决于安卓设备和厂商系统。</string>
+    <string name="help_app_filter">被过滤应用的通知不会转发。本应用和 Bark 始终在内部过滤列表中，用于避免通知循环。</string>
+
+    <string name="forward_type_test">测试</string>
+    <string name="forward_type_notification">通知</string>
+    <string name="forward_type_incoming_call">来电</string>
+    <string name="forward_type_missed_call">未接来电</string>
+    <string name="forward_source_settings">设置页</string>
+    <string name="forward_group">安卓转发</string>
+    <string name="forward_test_body">来自安卓“通知转发”的测试推送：%1$s</string>
+    <string name="forward_notification_title">通知：%1$s</string>
+    <string name="forward_call_title">%1$s：%2$s</string>
+    <string name="forward_label_source">来源：%1$s</string>
+    <string name="forward_label_title">标题：%1$s</string>
+    <string name="forward_label_content">内容：%1$s</string>
+    <string name="forward_label_time">时间：%1$s</string>
+    <string name="forward_label_number">号码：%1$s</string>
+    <string name="forward_unknown_number">未知号码</string>
+    <string name="forward_bluetooth_silenced">蓝牙静默：%1$s</string>
+    <string name="forward_bark_key_empty">Bark Key 为空</string>
+    <string name="forward_bark_received">Bark 已接收</string>
+    <string name="forward_bark_http_error">Bark 返回 HTTP %1$d：%2$s</string>
+    <string name="forward_added_to_retry">%1$s，已加入重试</string>
+    <string name="forward_retry_success">重试成功</string>
+    <string name="forward_retry_limit">重试超过上限：%1$s</string>
+    <string name="date_time_pattern">yyyy-MM-dd HH:mm:ss</string>
+</resources>

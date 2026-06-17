@@ -15,7 +15,6 @@ class AppSettingsRepository(context: Context) {
             barkServerUrl = prefs.getString(KEY_BARK_SERVER_URL, DEFAULT_BARK_SERVER_URL)
                 ?.ifBlank { DEFAULT_BARK_SERVER_URL } ?: DEFAULT_BARK_SERVER_URL,
             notificationEnabled = prefs.getBoolean(KEY_NOTIFICATION_ENABLED, true),
-            smsEnabled = prefs.getBoolean(KEY_SMS_ENABLED, true),
             phoneEnabled = prefs.getBoolean(KEY_PHONE_ENABLED, true),
             retryEnabled = prefs.getBoolean(KEY_RETRY_ENABLED, true),
             bluetoothSilenceEnabled = prefs.getBoolean(KEY_BLUETOOTH_SILENCE_ENABLED, false),
@@ -33,7 +32,6 @@ class AppSettingsRepository(context: Context) {
         prefs.edit()
             .putString(KEY_BARK_SERVER_URL, settings.barkServerUrl.trim().ifBlank { DEFAULT_BARK_SERVER_URL })
             .putBoolean(KEY_NOTIFICATION_ENABLED, settings.notificationEnabled)
-            .putBoolean(KEY_SMS_ENABLED, settings.smsEnabled)
             .putBoolean(KEY_PHONE_ENABLED, settings.phoneEnabled)
             .putBoolean(KEY_RETRY_ENABLED, settings.retryEnabled)
             .putBoolean(KEY_BLUETOOTH_SILENCE_ENABLED, settings.bluetoothSilenceEnabled)
@@ -58,7 +56,6 @@ class AppSettingsRepository(context: Context) {
         private const val KEY_BARK_KEY = "bark_key"
         private const val KEY_BARK_SERVER_URL = "bark_server_url"
         private const val KEY_NOTIFICATION_ENABLED = "notification_enabled"
-        private const val KEY_SMS_ENABLED = "sms_enabled"
         private const val KEY_PHONE_ENABLED = "phone_enabled"
         private const val KEY_RETRY_ENABLED = "retry_enabled"
         private const val KEY_BLUETOOTH_SILENCE_ENABLED = "bluetooth_silence_enabled"

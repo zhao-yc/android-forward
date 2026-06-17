@@ -9,6 +9,7 @@ app/build/
 keystore/*.jks
 keystore/*.keystore
 signing/debug-signing.properties
+signing/release-signing.properties
 .github-deploy-key/
 .playwright-mcp/
 .superpowers/

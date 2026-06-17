@@ -17,6 +17,7 @@ import androidx.core.app.NotificationCompat
 import com.zhaoyuchen.androidforward.MainActivity
 import com.zhaoyuchen.androidforward.R
 import com.zhaoyuchen.androidforward.data.AppSettingsRepository
+import com.zhaoyuchen.androidforward.localization.localizedString
 import com.zhaoyuchen.androidforward.receiver.KeepAliveWatchdogReceiver
 
 /**
@@ -83,11 +84,11 @@ class KeepAliveService : Service() {
         val manager = getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             CHANNEL_ID,
-            getString(R.string.keep_alive_channel_name),
+            localizedString(R.string.keep_alive_channel_name),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
             setShowBadge(false)
-            description = getString(R.string.keep_alive_notification_body)
+            description = localizedString(R.string.keep_alive_notification_body)
         }
         manager.createNotificationChannel(channel)
     }
@@ -95,6 +96,8 @@ class KeepAliveService : Service() {
     /** 重新发布前台服务通知；系统短暂移除通知时靠它补回来。 */
     private fun showForegroundNotification() {
         runCatching {
+            // 语言切换后重新创建同一渠道，可更新渠道名称和说明。
+            createNotificationChannel()
             startForeground(NOTIFICATION_ID, buildNotification())
         }
     }
@@ -115,8 +118,8 @@ class KeepAliveService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_forward)
-            .setContentTitle(getString(R.string.keep_alive_notification_title))
-            .setContentText(getString(R.string.keep_alive_notification_body))
+            .setContentTitle(localizedString(R.string.keep_alive_notification_title))
+            .setContentText(localizedString(R.string.keep_alive_notification_body))
             .setContentIntent(pendingIntent)
             .setDeleteIntent(deleteIntent)
             .setAutoCancel(false)
@@ -170,6 +173,13 @@ class KeepAliveService : Service() {
                 } else {
                     appContext.startService(intent)
                 }
+            }
+        }
+
+        /** 语言变化后重新发布常驻通知和通知渠道文案。 */
+        fun refresh(context: Context) {
+            if (AppSettingsRepository(context).load().keepAliveNotificationEnabled) {
+                startIfNeeded(context)
             }
         }
 

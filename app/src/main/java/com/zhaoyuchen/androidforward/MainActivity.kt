@@ -9,10 +9,13 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,15 +23,33 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -43,12 +64,23 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
+import androidx.core.os.LocaleListCompat
+import com.zhaoyuchen.androidforward.appfilter.AppCandidate
+import com.zhaoyuchen.androidforward.appfilter.AppPickerCatalog
+import com.zhaoyuchen.androidforward.appfilter.AppPickerSections
+import com.zhaoyuchen.androidforward.appfilter.InstalledAppRepository
 import com.zhaoyuchen.androidforward.bluetooth.BluetoothDeviceInfo
 import com.zhaoyuchen.androidforward.bluetooth.BluetoothSilenceManager
 import com.zhaoyuchen.androidforward.data.AppSettings
@@ -59,6 +91,9 @@ import com.zhaoyuchen.androidforward.forward.ForwardDispatcher
 import com.zhaoyuchen.androidforward.receiver.BluetoothConnectionReceiver
 import com.zhaoyuchen.androidforward.service.KeepAliveService
 import com.zhaoyuchen.androidforward.service.PhoneMonitorService
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -66,7 +101,7 @@ import kotlinx.coroutines.withContext
 /**
  * 设置页入口。所有操作都即时写入本地配置，方便系统监听服务读取最新状态。
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private val foregroundBluetoothReceiver = BluetoothConnectionReceiver()
     private var foregroundBluetoothReceiverRegistered = false
 
@@ -127,9 +162,7 @@ class MainActivity : ComponentActivity() {
 
     /** 打开系统通知使用权页面，用户需要手动允许本应用。 */
     private fun openNotificationSettings() {
-        runCatching {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }
+        runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
     }
 
     /** 请求忽略电池优化；不同厂商可能会跳到不同系统页面。 */
@@ -165,23 +198,32 @@ private fun AndroidForwardScreen(
     }
     var bluetoothRefreshing by remember { mutableStateOf(false) }
     var logs by remember { mutableStateOf(logRepository.list()) }
-    var statusText by remember { mutableStateOf("等待配置") }
+    var statusText by remember { mutableStateOf(context.getString(R.string.status_waiting_configuration)) }
+    var showLanguageDialog by remember { mutableStateOf(false) }
+    var showAppPicker by remember { mutableStateOf(false) }
 
     /** 在后台线程完整查询蓝牙 Profile，完成后再刷新 Compose 列表。 */
     fun refreshBluetoothDevices() {
         if (bluetoothRefreshing) return
         bluetoothRefreshing = true
-        statusText = "正在刷新蓝牙设备"
+        statusText = context.getString(R.string.status_refreshing_bluetooth)
         scope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching { BluetoothSilenceManager.refreshAndListBondedDevices(context) }
             }
             result.onSuccess { devices ->
                 bluetoothDevices = devices
-                val connectedCount = devices.count { it.connected }
-                statusText = "蓝牙设备列表已刷新，当前连接 $connectedCount 个"
+                val connectedCount = devices.count(BluetoothDeviceInfo::connected)
+                statusText = context.resources.getQuantityString(
+                    R.plurals.status_bluetooth_refreshed,
+                    connectedCount,
+                    connectedCount
+                )
             }.onFailure { error ->
-                statusText = "刷新蓝牙设备失败：${error.message ?: "未知错误"}"
+                statusText = context.getString(
+                    R.string.status_bluetooth_refresh_failed,
+                    error.message ?: context.getString(R.string.unknown_error)
+                )
             }
             bluetoothRefreshing = false
         }
@@ -194,15 +236,19 @@ private fun AndroidForwardScreen(
                 BluetoothSilenceManager.listBondedDevices(context)
             }
             bluetoothDevices = devices
-            val connectedCount = devices.count { it.connected }
-            statusText = "蓝牙状态已自动更新，当前连接 $connectedCount 个"
+            val connectedCount = devices.count(BluetoothDeviceInfo::connected)
+            statusText = context.resources.getQuantityString(
+                R.plurals.status_bluetooth_auto_updated,
+                connectedCount,
+                connectedCount
+            )
         }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
-        statusText = "权限状态已更新"
+        statusText = context.getString(R.string.status_permissions_updated)
     }
     val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -211,7 +257,7 @@ private fun AndroidForwardScreen(
             refreshBluetoothDevices()
         } else {
             bluetoothDevices = emptyList()
-            statusText = "未获得蓝牙设备权限"
+            statusText = context.getString(R.string.status_bluetooth_permission_denied)
         }
     }
 
@@ -224,41 +270,41 @@ private fun AndroidForwardScreen(
         settingsRepository.save(normalized)
     }
 
-    /** 即时切换指定应用的过滤状态，内置防循环过滤项不会被移除。 */
-    fun updatePackageFilter(packageName: String, filtered: Boolean) {
-        if (packageName.isBlank() || packageName in AppSettingsRepository.BUILTIN_FILTERED_PACKAGES) {
-            return
-        }
-        val nextPackages = if (filtered) {
-            settings.filteredPackages + packageName
-        } else {
-            settings.filteredPackages - packageName
-        }
-        persist(settings.copy(filteredPackages = nextPackages))
-        val appName = resolveApplicationName(context, packageName)
-        statusText = if (filtered) "已过滤：$appName" else "已恢复转发：$appName"
+    /** 即时取消指定应用的过滤状态，内置防循环过滤项不会被移除。 */
+    fun removePackageFilter(packageName: String) {
+        if (packageName.isBlank() || packageName in AppSettingsRepository.BUILTIN_FILTERED_PACKAGES) return
+        persist(settings.copy(filteredPackages = settings.filteredPackages - packageName))
+        statusText = context.getString(
+            R.string.status_forwarding_restored,
+            InstalledAppRepository.resolveApplicationName(context, packageName)
+        )
+    }
+
+    /** 批量新增应用过滤，完成后立即写入配置并生效。 */
+    fun addPackageFilters(packageNames: Set<String>) {
+        val validPackages = packageNames
+            .filterNot { it in AppSettingsRepository.BUILTIN_FILTERED_PACKAGES }
+            .toSet()
+        if (validPackages.isEmpty()) return
+        persist(settings.copy(filteredPackages = settings.filteredPackages + validPackages))
+        statusText = context.resources.getQuantityString(
+            R.plurals.status_filters_added,
+            validPackages.size,
+            validPackages.size
+        )
     }
 
     LaunchedEffect(Unit) {
-        if (BluetoothSilenceManager.hasBluetoothPermission(context)) {
-            refreshBluetoothDevices()
-        }
+        if (BluetoothSilenceManager.hasBluetoothPermission(context)) refreshBluetoothDevices()
     }
 
     DisposableEffect(Unit) {
-        val listener: () -> Unit = {
-            updateBluetoothDevicesFromCache()
-        }
+        val listener: () -> Unit = { updateBluetoothDevicesFromCache() }
         BluetoothSilenceManager.addConnectionStateListener(listener)
-        onDispose {
-            BluetoothSilenceManager.removeConnectionStateListener(listener)
-        }
+        onDispose { BluetoothSilenceManager.removeConnectionStateListener(listener) }
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -266,13 +312,16 @@ private fun AndroidForwardScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Header(statusText = statusText)
+            Header(statusText = statusText, onLanguageClick = { showLanguageDialog = true })
 
-            SectionTitle("Bark")
+            SectionTitle(
+                text = stringResource(R.string.section_bark),
+                helpBody = stringResource(R.string.help_bark)
+            )
             OutlinedTextField(
                 value = barkKey,
                 onValueChange = { barkKey = it },
-                label = { Text("Bark Key") },
+                label = { Text(stringResource(R.string.bark_key)) },
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -280,50 +329,45 @@ private fun AndroidForwardScreen(
             OutlinedTextField(
                 value = settings.barkServerUrl,
                 onValueChange = { persist(settings.copy(barkServerUrl = it)) },
-                label = { Text("Bark 服务地址") },
+                label = { Text(stringResource(R.string.bark_server_url)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(
-                    onClick = {
-                        settingsRepository.saveBarkKey(barkKey)
-                        statusText = "Bark Key 已保存"
-                    }
-                ) {
-                    Text("保存")
+                Button(onClick = {
+                    settingsRepository.saveBarkKey(barkKey)
+                    statusText = context.getString(R.string.status_bark_key_saved)
+                }) {
+                    Text(stringResource(R.string.action_save))
                 }
-                OutlinedButton(
-                    onClick = {
-                        settingsRepository.saveBarkKey(barkKey)
-                        statusText = "正在发送测试推送"
-                        scope.launch {
-                            val result = withContext(Dispatchers.IO) {
-                                ForwardDispatcher.forwardTest(context)
-                            }
-                            statusText = if (result.success) "测试推送成功" else "测试推送失败：${result.detail}"
-                            logs = logRepository.list()
+                OutlinedButton(onClick = {
+                    settingsRepository.saveBarkKey(barkKey)
+                    statusText = context.getString(R.string.status_sending_test)
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            ForwardDispatcher.forwardTest(context)
                         }
+                        statusText = if (result.success) {
+                            context.getString(R.string.status_test_success)
+                        } else {
+                            context.getString(R.string.status_test_failed, result.detail)
+                        }
+                        logs = logRepository.list()
                     }
-                ) {
-                    Text("测试推送")
+                }) {
+                    Text(stringResource(R.string.action_test_push))
                 }
             }
 
             HorizontalDivider()
-            SectionTitle("转发")
+            SectionTitle(stringResource(R.string.section_forwarding))
             FeatureSwitch(
-                title = "系统通知",
+                title = stringResource(R.string.feature_system_notifications),
                 checked = settings.notificationEnabled,
                 onCheckedChange = { persist(settings.copy(notificationEnabled = it)) }
             )
             FeatureSwitch(
-                title = "短信",
-                checked = settings.smsEnabled,
-                onCheckedChange = { persist(settings.copy(smsEnabled = it)) }
-            )
-            FeatureSwitch(
-                title = "电话",
+                title = stringResource(R.string.feature_phone),
                 checked = settings.phoneEnabled,
                 onCheckedChange = {
                     persist(settings.copy(phoneEnabled = it))
@@ -331,15 +375,15 @@ private fun AndroidForwardScreen(
                 }
             )
             FeatureSwitch(
-                title = "失败重试",
+                title = stringResource(R.string.feature_retry),
                 checked = settings.retryEnabled,
                 onCheckedChange = { persist(settings.copy(retryEnabled = it)) }
             )
 
             HorizontalDivider()
-            SectionTitle("运行状态")
+            SectionTitle(stringResource(R.string.section_runtime_status))
             FeatureSwitch(
-                title = "常驻状态通知",
+                title = stringResource(R.string.feature_keep_alive_notification),
                 checked = settings.keepAliveNotificationEnabled,
                 onCheckedChange = {
                     persist(settings.copy(keepAliveNotificationEnabled = it))
@@ -348,36 +392,40 @@ private fun AndroidForwardScreen(
             )
 
             HorizontalDivider()
-            SectionTitle("权限")
+            SectionTitle(
+                text = stringResource(R.string.section_permissions),
+                helpBody = stringResource(R.string.help_permissions)
+            )
             PermissionRow(
-                title = "通知使用权",
+                title = stringResource(R.string.permission_notification_access),
                 granted = isNotificationAccessGranted(context),
-                actionText = "打开",
+                actionText = stringResource(R.string.action_open),
                 onClick = openNotificationSettings
             )
             PermissionRow(
-                title = "短信、电话和通知权限",
+                title = stringResource(R.string.permission_runtime),
                 granted = hasRuntimePermissions(context),
-                actionText = "申请",
+                actionText = stringResource(R.string.action_request),
                 onClick = { permissionLauncher.launch(requiredRuntimePermissions()) }
             )
             PermissionRow(
-                title = "蓝牙设备权限",
+                title = stringResource(R.string.permission_bluetooth),
                 granted = hasBluetoothPermission(context),
-                actionText = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) "申请" else "无需",
+                actionText = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    stringResource(R.string.action_request)
+                } else {
+                    stringResource(R.string.action_not_required)
+                },
                 onClick = {
                     val permissions = requiredBluetoothPermissions()
-                    if (permissions.isEmpty()) {
-                        refreshBluetoothDevices()
-                    } else {
-                        bluetoothPermissionLauncher.launch(permissions)
-                    }
+                    if (permissions.isEmpty()) refreshBluetoothDevices()
+                    else bluetoothPermissionLauncher.launch(permissions)
                 }
             )
             PermissionRow(
-                title = "省电白名单",
+                title = stringResource(R.string.permission_battery),
                 granted = isIgnoringBatteryOptimizations(context),
-                actionText = "打开",
+                actionText = stringResource(R.string.action_open),
                 onClick = openBatterySettings
             )
 
@@ -388,9 +436,7 @@ private fun AndroidForwardScreen(
                 permissionGranted = hasBluetoothPermission(context),
                 refreshing = bluetoothRefreshing,
                 onRefresh = ::refreshBluetoothDevices,
-                onEnabledChange = { enabled ->
-                    persist(settings.copy(bluetoothSilenceEnabled = enabled))
-                },
+                onEnabledChange = { persist(settings.copy(bluetoothSilenceEnabled = it)) },
                 onDeviceCheckedChange = { address, checked ->
                     val nextAddresses = if (checked) {
                         settings.mutedBluetoothAddresses + address
@@ -405,48 +451,126 @@ private fun AndroidForwardScreen(
             FilteredAppsSection(
                 context = context,
                 filteredPackages = settings.filteredPackages,
-                onRemove = { packageName -> updatePackageFilter(packageName, filtered = false) }
+                onAdd = {
+                    // 打开选择器前读取最新日志，确保“最近通知过”分组及时更新。
+                    logs = logRepository.list()
+                    showAppPicker = true
+                },
+                onRemove = ::removePackageFilter
             )
 
             HorizontalDivider()
             LogSection(
                 logs = logs,
-                filteredPackages = settings.filteredPackages,
-                onFilterChanged = ::updatePackageFilter,
                 onRefresh = { logs = logRepository.list() },
                 onClear = {
                     logRepository.clear()
                     logs = emptyList()
-                    statusText = "日志已清空"
+                    statusText = context.getString(R.string.status_logs_cleared)
                 }
+            )
+        }
+    }
+
+    if (showLanguageDialog) {
+        LanguageDialog(
+            onDismiss = { showLanguageDialog = false },
+            onLanguageSelected = { languageTag ->
+                showLanguageDialog = false
+                AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(languageTag))
+                KeepAliveService.refresh(context)
+            }
+        )
+    }
+    if (showAppPicker) {
+        AppPickerSheet(
+            context = context,
+            logs = logs,
+            excludedPackages = settings.filteredPackages,
+            onDismiss = { showAppPicker = false },
+            onConfirm = { packages ->
+                addPackageFilters(packages)
+                showAppPicker = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun Header(statusText: String, onLanguageClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        IconButton(onClick = onLanguageClick) {
+            Icon(
+                imageVector = Icons.Outlined.Language,
+                contentDescription = stringResource(R.string.action_language)
             )
         }
     }
 }
 
 @Composable
-private fun Header(statusText: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+private fun SectionTitle(
+    text: String,
+    helpBody: String? = null,
+    actionText: String? = null,
+    onAction: (() -> Unit)? = null
+) {
+    var showHelp by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(
-            text = "通知转发",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f)
         )
-        Text(
-            text = statusText,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        if (helpBody != null) {
+            IconButton(onClick = { showHelp = true }) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
+                    contentDescription = stringResource(R.string.action_help)
+                )
+            }
+        }
+        if (actionText != null && onAction != null) {
+            TextButton(onClick = onAction) {
+                Icon(imageVector = Icons.Outlined.Add, contentDescription = null)
+                Spacer(modifier = Modifier.size(4.dp))
+                Text(actionText)
+            }
+        }
+    }
+    if (showHelp && helpBody != null) {
+        AlertDialog(
+            onDismissRequest = { showHelp = false },
+            title = { Text(text) },
+            text = { Text(helpBody) },
+            confirmButton = {
+                TextButton(onClick = { showHelp = false }) {
+                    Text(stringResource(R.string.action_close))
+                }
+            }
         )
     }
-}
-
-@Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold
-    )
 }
 
 @Composable
@@ -471,21 +595,30 @@ private fun BluetoothSilenceSection(
     onEnabledChange: (Boolean) -> Unit,
     onDeviceCheckedChange: (String, Boolean) -> Unit
 ) {
-    SectionTitle("蓝牙静默")
+    SectionTitle(
+        text = stringResource(R.string.section_bluetooth_silence),
+        helpBody = stringResource(R.string.help_bluetooth_silence)
+    )
     FeatureSwitch(
-        title = "连接所选设备时静默",
+        title = stringResource(R.string.feature_silence_selected_bluetooth),
         checked = settings.bluetoothSilenceEnabled,
         onCheckedChange = onEnabledChange
     )
     OutlinedButton(onClick = onRefresh, enabled = !refreshing) {
-        Text(if (refreshing) "正在刷新" else "刷新蓝牙设备")
+        Text(
+            if (refreshing) stringResource(R.string.action_refreshing)
+            else stringResource(R.string.action_refresh)
+        )
     }
     if (!permissionGranted) {
-        Text("授权后显示已配对设备", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            stringResource(R.string.bluetooth_permission_hint),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         return
     }
     if (devices.isEmpty()) {
-        Text("暂无已配对设备", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.bluetooth_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
         return
     }
     devices.forEach { device ->
@@ -511,7 +644,11 @@ private fun BluetoothDeviceRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(text = device.name, style = MaterialTheme.typography.bodyLarge)
             Text(
-                text = if (device.connected) "已连接" else "未连接",
+                text = if (device.connected) {
+                    stringResource(R.string.bluetooth_connected)
+                } else {
+                    stringResource(R.string.bluetooth_disconnected)
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = if (device.connected) {
                     MaterialTheme.colorScheme.primary
@@ -536,21 +673,19 @@ private fun PermissionRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(text = title, style = MaterialTheme.typography.bodyLarge)
             Text(
-                text = if (granted) "已允许" else "未允许",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (granted) {
-                    MaterialTheme.colorScheme.primary
+                text = if (granted) {
+                    stringResource(R.string.permission_granted)
                 } else {
-                    MaterialTheme.colorScheme.error
-                }
+                    stringResource(R.string.permission_not_granted)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
             )
         }
-        OutlinedButton(onClick = onClick) {
-            Text(actionText)
-        }
+        OutlinedButton(onClick = onClick) { Text(actionText) }
     }
 }
 
@@ -558,26 +693,27 @@ private fun PermissionRow(
 private fun FilteredAppsSection(
     context: Context,
     filteredPackages: Set<String>,
+    onAdd: () -> Unit,
     onRemove: (String) -> Unit
 ) {
     val customPackages = filteredPackages - AppSettingsRepository.BUILTIN_FILTERED_PACKAGES
     val apps = remember(customPackages) {
-        customPackages
-            .map { packageName ->
-                FilteredAppInfo(
-                    name = resolveApplicationName(context, packageName),
-                    packageName = packageName
-                )
-            }
-            .sortedWith(compareBy<FilteredAppInfo> { it.name }.thenBy { it.packageName })
+        customPackages.map { packageName ->
+            AppCandidate(
+                name = InstalledAppRepository.resolveApplicationName(context, packageName),
+                packageName = packageName
+            )
+        }.sortedWith(compareBy<AppCandidate> { it.name }.thenBy(AppCandidate::packageName))
     }
 
-    SectionTitle("已过滤应用")
+    SectionTitle(
+        text = stringResource(R.string.section_app_filter),
+        helpBody = stringResource(R.string.help_app_filter),
+        actionText = stringResource(R.string.action_add),
+        onAction = onAdd
+    )
     if (apps.isEmpty()) {
-        Text(
-            text = "暂无自定义过滤应用，可在最近状态中直接选择",
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(stringResource(R.string.app_filter_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
         return
     }
     apps.forEach { app ->
@@ -595,7 +731,7 @@ private fun FilteredAppsSection(
                 )
             }
             TextButton(onClick = { onRemove(app.packageName) }) {
-                Text("取消过滤")
+                Text(stringResource(R.string.action_remove_filter))
             }
         }
     }
@@ -604,91 +740,293 @@ private fun FilteredAppsSection(
 @Composable
 private fun LogSection(
     logs: List<ForwardLogItem>,
-    filteredPackages: Set<String>,
-    onFilterChanged: (String, Boolean) -> Unit,
     onRefresh: () -> Unit,
     onClear: () -> Unit
 ) {
-    SectionTitle("最近状态")
+    SectionTitle(stringResource(R.string.section_recent_status))
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedButton(onClick = onRefresh) {
-            Text("刷新")
-        }
-        TextButton(onClick = onClear) {
-            Text("清空")
-        }
+        OutlinedButton(onClick = onRefresh) { Text(stringResource(R.string.action_refresh)) }
+        TextButton(onClick = onClear) { Text(stringResource(R.string.action_clear)) }
     }
     if (logs.isEmpty()) {
-        Text("暂无日志", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.logs_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
     } else {
         logs.take(12).forEach { item ->
-            LogRow(
-                item = item,
-                filtered = item.sourcePackage?.let(filteredPackages::contains) ?: false,
-                onFilterChanged = onFilterChanged
-            )
+            LogRow(item)
             Spacer(modifier = Modifier.height(4.dp))
         }
     }
 }
 
 @Composable
-private fun LogRow(
-    item: ForwardLogItem,
-    filtered: Boolean,
-    onFilterChanged: (String, Boolean) -> Unit
+private fun LogRow(item: ForwardLogItem) {
+    val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+    val pattern = stringResource(R.string.date_time_pattern)
+    val time = remember(item.time, locale, pattern) {
+        SimpleDateFormat(pattern, locale).format(Date(item.time))
+    }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(
+                R.string.log_row_format,
+                time,
+                item.type,
+                if (item.success) stringResource(R.string.result_success)
+                else stringResource(R.string.result_failure)
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = "${item.source} · ${item.detail}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun LanguageDialog(onDismiss: () -> Unit, onLanguageSelected: (String) -> Unit) {
+    val selectedTag = AppCompatDelegate.getApplicationLocales().toLanguageTags()
+    val options = listOf(
+        "" to stringResource(R.string.language_follow_system),
+        "zh-Hans" to stringResource(R.string.language_chinese_simplified),
+        "en" to stringResource(R.string.language_english)
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.language_title)) },
+        text = {
+            Column {
+                options.forEach { (tag, label) ->
+                    val selected = when (tag) {
+                        "" -> selectedTag.isBlank()
+                        "zh-Hans" -> selectedTag.startsWith("zh")
+                        "en" -> selectedTag.startsWith("en")
+                        else -> selectedTag == tag
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onLanguageSelected(tag) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = selected, onClick = null)
+                        Text(label)
+                    }
+                }
+            }
+        },
+        confirmButton = {}
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppPickerSheet(
+    context: Context,
+    logs: List<ForwardLogItem>,
+    excludedPackages: Set<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (Set<String>) -> Unit
 ) {
-    val time = android.text.format.DateFormat.format("MM-dd HH:mm:ss", item.time).toString()
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
+    var loading by remember { mutableStateOf(true) }
+    var loadFailed by remember { mutableStateOf(false) }
+    var sections by remember { mutableStateOf(AppPickerSections(emptyList(), emptyList())) }
+    var query by remember { mutableStateOf("") }
+    var selectedPackages by remember { mutableStateOf(emptySet<String>()) }
+
+    LaunchedEffect(logs, excludedPackages) {
+        loading = true
+        loadFailed = false
+        val result = withContext(Dispatchers.IO) {
+            runCatching {
+                AppPickerCatalog.build(
+                    recentApps = InstalledAppRepository.recentFromLogs(context, logs),
+                    launcherApps = InstalledAppRepository.listLauncherApps(context),
+                    excludedPackages = excludedPackages + AppSettingsRepository.BUILTIN_FILTERED_PACKAGES
+                )
+            }
+        }
+        result.onSuccess { sections = it }.onFailure { loadFailed = true }
+        loading = false
+    }
+
+    val visibleSections = remember(sections, query) { AppPickerCatalog.search(sections, query) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             Text(
-                text = "$time  ${item.type}  ${if (item.success) "成功" else "失败"}",
-                style = MaterialTheme.typography.bodyMedium,
+                text = stringResource(R.string.picker_title),
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold
             )
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text(stringResource(R.string.picker_search_hint)) },
+                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { query = "" }) {
+                            Icon(Icons.Outlined.Clear, contentDescription = null)
+                        }
+                    }
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            when {
+                loading -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.size(12.dp))
+                        Text(stringResource(R.string.picker_loading))
+                    }
+                }
+                loadFailed -> Text(
+                    stringResource(R.string.picker_load_failed),
+                    color = MaterialTheme.colorScheme.error
+                )
+                visibleSections.recent.isEmpty() && visibleSections.other.isEmpty() -> Text(
+                    stringResource(R.string.picker_empty),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                else -> LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp)) {
+                    if (visibleSections.recent.isNotEmpty()) {
+                        item {
+                            PickerGroupTitle(stringResource(R.string.picker_recent_apps))
+                        }
+                        items(visibleSections.recent, key = AppCandidate::packageName) { app ->
+                            AppPickerRow(
+                                context = context,
+                                app = app,
+                                selected = app.packageName in selectedPackages,
+                                onSelectedChange = { selected ->
+                                    selectedPackages = if (selected) {
+                                        selectedPackages + app.packageName
+                                    } else {
+                                        selectedPackages - app.packageName
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    if (visibleSections.other.isNotEmpty()) {
+                        item {
+                            PickerGroupTitle(stringResource(R.string.picker_other_apps))
+                        }
+                        items(visibleSections.other, key = AppCandidate::packageName) { app ->
+                            AppPickerRow(
+                                context = context,
+                                app = app,
+                                selected = app.packageName in selectedPackages,
+                                onSelectedChange = { selected ->
+                                    selectedPackages = if (selected) {
+                                        selectedPackages + app.packageName
+                                    } else {
+                                        selectedPackages - app.packageName
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    pluralStringResource(
+                        R.plurals.picker_selected_count,
+                        selectedPackages.size,
+                        selectedPackages.size
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+                    Button(
+                        onClick = { onConfirm(selectedPackages) },
+                        enabled = selectedPackages.isNotEmpty()
+                    ) {
+                        Text(stringResource(R.string.action_done))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PickerGroupTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+    )
+}
+
+@Composable
+private fun AppPickerRow(
+    context: Context,
+    app: AppCandidate,
+    selected: Boolean,
+    onSelectedChange: (Boolean) -> Unit
+) {
+    val inspectionMode = LocalInspectionMode.current
+    val iconBitmap = remember(app.packageName, inspectionMode) {
+        if (inspectionMode) null
+        else runCatching {
+            context.packageManager.getApplicationIcon(app.packageName)
+                .toBitmap(width = 64, height = 64)
+                .asImageBitmap()
+        }.getOrNull()
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onSelectedChange(!selected) }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (iconBitmap != null) {
+            Image(bitmap = iconBitmap, contentDescription = null, modifier = Modifier.size(40.dp))
+        } else {
+            Icon(Icons.Outlined.Apps, contentDescription = null, modifier = Modifier.size(40.dp))
+        }
+        Spacer(modifier = Modifier.size(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(app.name, style = MaterialTheme.typography.bodyLarge)
             Text(
-                text = "${item.source} · ${item.detail}",
+                app.packageName,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        item.sourcePackage
-            ?.takeUnless { it in AppSettingsRepository.BUILTIN_FILTERED_PACKAGES }
-            ?.let { packageName ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "过滤", style = MaterialTheme.typography.bodySmall)
-                    Checkbox(
-                        checked = filtered,
-                        onCheckedChange = { checked -> onFilterChanged(packageName, checked) }
-                    )
-                }
-            }
+        Checkbox(checked = selected, onCheckedChange = onSelectedChange)
     }
-}
-
-private data class FilteredAppInfo(
-    val name: String,
-    val packageName: String
-)
-
-/** 根据包名解析应用名称；应用已卸载或查询失败时回退显示包名。 */
-private fun resolveApplicationName(context: Context, packageName: String): String {
-    return runCatching {
-        val info = context.packageManager.getApplicationInfo(packageName, 0)
-        context.packageManager.getApplicationLabel(info).toString()
-    }.getOrDefault(packageName)
 }
 
 /** 返回运行时危险权限列表，按系统版本跳过不存在的权限。 */
 private fun requiredRuntimePermissions(): Array<String> {
     return buildList {
         add(Manifest.permission.READ_PHONE_STATE)
-        add(Manifest.permission.READ_SMS)
-        add(Manifest.permission.RECEIVE_SMS)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -704,7 +1042,7 @@ private fun requiredBluetoothPermissions(): Array<String> {
     }
 }
 
-/** 检查短信、电话和通知展示权限是否都已允许。 */
+/** 检查电话和通知展示权限是否都已允许。 */
 private fun hasRuntimePermissions(context: Context): Boolean {
     return requiredRuntimePermissions().all { permission ->
         ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
@@ -724,6 +1062,6 @@ private fun isNotificationAccessGranted(context: Context): Boolean {
 /** 检查是否已忽略电池优化。 */
 private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
-    val powerManager = context.getSystemService(PowerManager::class.java)
-    return powerManager.isIgnoringBatteryOptimizations(context.packageName)
+    return context.getSystemService(PowerManager::class.java)
+        .isIgnoringBatteryOptimizations(context.packageName)
 }

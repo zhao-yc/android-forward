@@ -1,6 +1,7 @@
 package com.zhaoyuchen.androidforward.bluetooth
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
@@ -9,7 +10,9 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
+import com.zhaoyuchen.androidforward.R
 import com.zhaoyuchen.androidforward.data.AppSettings
+import com.zhaoyuchen.androidforward.localization.localizedString
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.TimeUnit
@@ -73,7 +76,7 @@ object BluetoothSilenceManager {
             .map { device ->
                 val address = readDeviceAddress(device)
                 BluetoothDeviceInfo(
-                    name = readDeviceName(device),
+                    name = readDeviceName(context, device),
                     address = address,
                     connected = connectedAddresses.contains(address)
                 )
@@ -95,7 +98,7 @@ object BluetoothSilenceManager {
 
         return getBondedDevices(context)
             .firstOrNull { readDeviceAddress(it) == mutedAddress }
-            ?.let { readDeviceName(it) }
+            ?.let { readDeviceName(context, it) }
             ?: mutedAddress
     }
 
@@ -187,7 +190,9 @@ object BluetoothSilenceManager {
     }
 
     /** 读取已配对设备，所有异常都降级为空列表，避免权限变化导致崩溃。 */
+    @SuppressLint("MissingPermission")
     private fun getBondedDevices(context: Context): Set<BluetoothDevice> {
+        if (!hasBluetoothPermission(context)) return emptySet()
         return runCatching {
             getAdapter(context)?.bondedDevices ?: emptySet()
         }.getOrDefault(emptySet())
@@ -205,7 +210,7 @@ object BluetoothSilenceManager {
         val profiles = buildList {
             add(BluetoothProfile.A2DP)
             add(BluetoothProfile.HEADSET)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 add(BluetoothProfile.HEARING_AID)
             }
         }
@@ -246,10 +251,14 @@ object BluetoothSilenceManager {
         }.getOrDefault(false)
     }
 
-    private fun readDeviceName(device: BluetoothDevice): String {
+    @SuppressLint("MissingPermission")
+    private fun readDeviceName(context: Context, device: BluetoothDevice): String {
+        if (!hasBluetoothPermission(context)) {
+            return context.localizedString(R.string.unknown_bluetooth_device)
+        }
         return runCatching { device.name?.ifBlank { null } }
             .getOrNull()
-            ?: "未知蓝牙设备"
+            ?: context.localizedString(R.string.unknown_bluetooth_device)
     }
 
     private fun readDeviceAddress(device: BluetoothDevice): String {

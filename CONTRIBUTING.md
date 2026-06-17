@@ -1,6 +1,6 @@
 # 贡献指南
 
-欢迎提交 Issue 和 Pull Request。这个项目目前按个人侧载场景设计，优先保证通知、短信、电话转发的稳定性和隐私边界。
+欢迎提交 Issue 和 Pull Request。这个项目目前按个人侧载场景设计，优先保证通知、电话转发的稳定性和隐私边界。
 
 ## 开发流程
 
@@ -20,10 +20,10 @@ docker run --rm \
   bash -lc 'mkdir -p /tmp/android-forward-home /workspace/.gradle-docker-cache && gradle assembleDebug --no-daemon'
 ```
 
-3. 不要提交 Bark Key、keystore、签名密码、短信内容或其它个人数据。
+3. 不要提交 Bark Key、keystore、签名密码、通知正文或其它个人数据。
 
 ## 代码风格
 
 - Kotlin 代码保持简洁，关键方法添加中文注释。
 - 新增监听入口时，网络请求必须放到后台线程。
-- 日志只保存状态摘要，不保存完整通知或短信正文。
+- 日志只保存状态摘要，不保存完整通知正文。

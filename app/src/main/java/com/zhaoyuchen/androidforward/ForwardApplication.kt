@@ -1,6 +1,7 @@
 package com.zhaoyuchen.androidforward
 
 import android.app.Application
+import android.content.res.Configuration
 import com.zhaoyuchen.androidforward.bluetooth.BluetoothSilenceManager
 import com.zhaoyuchen.androidforward.forward.RetryQueue
 import com.zhaoyuchen.androidforward.service.KeepAliveService
@@ -16,5 +17,11 @@ class ForwardApplication : Application() {
         KeepAliveService.startIfNeeded(this)
         PhoneMonitorService.startIfNeeded(this)
         RetryQueue.flushAsync(this)
+    }
+
+    /** 应用语言变化后立即刷新仍在运行的常驻状态通知。 */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        KeepAliveService.refresh(this)
     }
 }

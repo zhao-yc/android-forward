@@ -11,7 +11,7 @@ data class ForwardPayload(
     val title: String,
     val body: String,
     val sourcePackage: String? = null,
-    val group: String = "安卓转发",
+    val group: String,
     val level: String = "active"
 ) {
     /** 序列化用于加密重试队列。 */

@@ -1,30 +1,33 @@
 package com.zhaoyuchen.androidforward.forward
 
 import android.content.Context
+import com.zhaoyuchen.androidforward.R
 import com.zhaoyuchen.androidforward.bluetooth.BluetoothSilenceManager
 import com.zhaoyuchen.androidforward.data.AppSettingsRepository
 import com.zhaoyuchen.androidforward.data.ForwardLogRepository
+import com.zhaoyuchen.androidforward.localization.localizedLocale
+import com.zhaoyuchen.androidforward.localization.localizedString
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 import java.util.concurrent.Executors
 
 /**
  * 所有监听入口统一调用这里，保证开关、Bark Key、日志和重试策略一致。
  */
 object ForwardDispatcher {
-    private val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA)
     private val sendExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "android-forward-sender")
     }
 
     /** 设置页的测试推送，不进入失败重试队列，便于用户立即看到真实结果。 */
     fun forwardTest(context: Context): ForwardResult {
+        val now = formatNow(context)
         val payload = ForwardPayload(
             type = ForwardType.TEST,
-            source = "设置页",
-            title = "测试",
-            body = "来自安卓「通知转发」的测试推送：${formatNow()}"
+            source = context.localizedString(R.string.forward_source_settings),
+            title = ForwardType.TEST.title(context),
+            body = context.localizedString(R.string.forward_test_body, now),
+            group = context.localizedString(R.string.forward_group)
         )
         return send(context, payload, allowRetry = false)
     }
@@ -37,52 +40,44 @@ object ForwardDispatcher {
         title: String,
         text: String
     ) {
+        val now = formatNow(context)
         val body = buildString {
-            appendLine("来源：$appName")
-            if (title.isNotBlank()) appendLine("标题：$title")
-            if (text.isNotBlank()) appendLine("内容：$text")
-            append("时间：${formatNow()}")
+            appendLine(context.localizedString(R.string.forward_label_source, appName))
+            if (title.isNotBlank()) {
+                appendLine(context.localizedString(R.string.forward_label_title, title))
+            }
+            if (text.isNotBlank()) {
+                appendLine(context.localizedString(R.string.forward_label_content, text))
+            }
+            append(context.localizedString(R.string.forward_label_time, now))
         }
         val payload = ForwardPayload(
             type = ForwardType.NOTIFICATION,
             source = appName,
-            title = "通知：$appName",
+            title = context.localizedString(R.string.forward_notification_title, appName),
             body = body,
-            sourcePackage = packageName
-        )
-        sendAsync(context, payload, allowRetry = true)
-    }
-
-    /** 转发新短信。短信正文只进入 Bark 推送和加密重试队列，不写入状态日志。 */
-    fun forwardSms(context: Context, sender: String, message: String) {
-        val displaySender = sender.ifBlank { "未知号码" }
-        val body = buildString {
-            appendLine("发件人：$displaySender")
-            appendLine("内容：$message")
-            append("时间：${formatNow()}")
-        }
-        val payload = ForwardPayload(
-            type = ForwardType.SMS,
-            source = displaySender,
-            title = "短信：$displaySender",
-            body = body
+            sourcePackage = packageName,
+            group = context.localizedString(R.string.forward_group)
         )
         sendAsync(context, payload, allowRetry = true)
     }
 
     /** 转发来电或未接来电；拿不到号码时会降级显示未知号码。 */
     fun forwardCall(context: Context, missed: Boolean, number: String?) {
-        val displayNumber = number?.takeIf { it.isNotBlank() } ?: "未知号码"
+        val displayNumber = number?.takeIf { it.isNotBlank() }
+            ?: context.localizedString(R.string.forward_unknown_number)
         val type = if (missed) ForwardType.MISSED_CALL else ForwardType.INCOMING_CALL
+        val now = formatNow(context)
         val body = buildString {
-            appendLine("号码：$displayNumber")
-            append("时间：${formatNow()}")
+            appendLine(context.localizedString(R.string.forward_label_number, displayNumber))
+            append(context.localizedString(R.string.forward_label_time, now))
         }
         val payload = ForwardPayload(
             type = type,
             source = displayNumber,
-            title = "${type.displayTitle}：$displayNumber",
-            body = body
+            title = context.localizedString(R.string.forward_call_title, type.title(context), displayNumber),
+            body = body,
+            group = context.localizedString(R.string.forward_group)
         )
         sendAsync(context, payload, allowRetry = true)
     }
@@ -106,9 +101,12 @@ object ForwardDispatcher {
         if (allowRetry) {
             val mutedDeviceName = BluetoothSilenceManager.findConnectedMutedDevice(appContext, settings)
             if (mutedDeviceName != null) {
-                val result = ForwardResult(true, "蓝牙静默：$mutedDeviceName")
+                val result = ForwardResult(
+                    true,
+                    appContext.localizedString(R.string.forward_bluetooth_silenced, mutedDeviceName)
+                )
                 logs.add(
-                    payload.type.displayTitle,
+                    payload.type.title(appContext),
                     payload.source,
                     true,
                     result.detail,
@@ -119,9 +117,9 @@ object ForwardDispatcher {
         }
 
         if (barkKey.isBlank()) {
-            val result = ForwardResult(false, "Bark Key 为空")
+            val result = ForwardResult(false, appContext.localizedString(R.string.forward_bark_key_empty))
             logs.add(
-                payload.type.displayTitle,
+                payload.type.title(appContext),
                 payload.source,
                 false,
                 result.detail,
@@ -130,9 +128,9 @@ object ForwardDispatcher {
             return result
         }
 
-        val result = BarkClient.send(settings.barkServerUrl, barkKey, payload)
+        val result = BarkClient.send(appContext, settings.barkServerUrl, barkKey, payload)
         logs.add(
-            payload.type.displayTitle,
+            payload.type.title(appContext),
             payload.source,
             result.success,
             result.detail,
@@ -141,7 +139,9 @@ object ForwardDispatcher {
 
         if (!result.success && allowRetry && settings.retryEnabled) {
             RetryQueue.enqueue(appContext, payload)
-            return result.copy(detail = "${result.detail}，已加入重试")
+            return result.copy(
+                detail = appContext.localizedString(R.string.forward_added_to_retry, result.detail)
+            )
         }
 
         if (result.success && settings.retryEnabled) {
@@ -151,7 +151,12 @@ object ForwardDispatcher {
         return result
     }
 
-    private fun formatNow(): String = synchronized(timeFormat) {
-        timeFormat.format(Date())
+    /** 按当前应用语言格式化时间，避免固定使用中文 Locale。 */
+    private fun formatNow(context: Context): String {
+        val format = SimpleDateFormat(
+            context.localizedString(R.string.date_time_pattern),
+            context.localizedLocale()
+        )
+        return format.format(Date())
     }
 }

@@ -5,7 +5,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * 只记录转发状态，不记录完整正文。这样能排查问题，又不会把短信/通知内容留在日志里。
+ * 只记录转发状态，不记录完整正文。这样能排查问题，又不会把通知内容留在日志里。
  */
 class ForwardLogRepository(context: Context) {
     private val appContext = context.applicationContext

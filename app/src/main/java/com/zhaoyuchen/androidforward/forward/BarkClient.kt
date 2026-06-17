@@ -1,5 +1,8 @@
 package com.zhaoyuchen.androidforward.forward
 
+import android.content.Context
+import com.zhaoyuchen.androidforward.R
+import com.zhaoyuchen.androidforward.localization.localizedString
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -15,9 +18,9 @@ object BarkClient {
     private const val READ_TIMEOUT_MS = 10_000
 
     /** 发送 Bark JSON 推送，成功标准是 HTTP 2xx 且 Bark 响应 code 不是错误。 */
-    fun send(baseUrl: String, barkKey: String, payload: ForwardPayload): ForwardResult {
+    fun send(context: Context, baseUrl: String, barkKey: String, payload: ForwardPayload): ForwardResult {
         if (barkKey.isBlank()) {
-            return ForwardResult(false, "Bark Key 为空")
+            return ForwardResult(false, context.localizedString(R.string.forward_bark_key_empty))
         }
 
         return runCatching {
@@ -47,9 +50,16 @@ object BarkClient {
             connection.disconnect()
 
             if (code in 200..299 && isBarkSuccess(responseText)) {
-                ForwardResult(true, "Bark 已接收")
+                ForwardResult(true, context.localizedString(R.string.forward_bark_received))
             } else {
-                ForwardResult(false, "Bark 返回 HTTP $code：${responseText.take(120)}")
+                ForwardResult(
+                    false,
+                    context.localizedString(
+                        R.string.forward_bark_http_error,
+                        code,
+                        responseText.take(120)
+                    )
+                )
             }
         }.getOrElse { error ->
             ForwardResult(false, error.message ?: error.javaClass.simpleName)

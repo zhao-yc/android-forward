@@ -11,7 +11,7 @@ import com.zhaoyuchen.androidforward.service.KeepAliveService
 import com.zhaoyuchen.androidforward.service.PhoneMonitorService
 
 /**
- * 开机后恢复电话监听和失败重试。短信和通知监听由系统根据权限自动唤起。
+ * 开机后恢复电话监听和失败重试。通知监听由系统根据权限自动唤起。
  */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {

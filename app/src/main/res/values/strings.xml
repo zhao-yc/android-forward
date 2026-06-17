@@ -1,10 +1,129 @@
 <resources>
-    <string name="app_name">通知转发</string>
-    <string name="notification_listener_label">通知转发监听服务</string>
-    <string name="phone_monitor_channel_name">电话监听状态</string>
-    <string name="phone_monitor_notification_title">通知转发正在监听电话状态</string>
-    <string name="phone_monitor_notification_body">用于把安卓来电和未接来电转发到 iPhone</string>
-    <string name="keep_alive_channel_name">运行状态</string>
-    <string name="keep_alive_notification_title">通知转发正在运行</string>
-    <string name="keep_alive_notification_body">看到这条通知，说明应用进程仍在运行</string>
+    <string name="app_name">Notification Forwarder</string>
+    <string name="notification_listener_label">Notification forwarding listener</string>
+    <string name="keep_alive_channel_name">Runtime status</string>
+    <string name="keep_alive_notification_title">Notification Forwarder is running</string>
+    <string name="keep_alive_notification_body">This notification indicates that the app process is still running</string>
+
+    <string name="section_bark">Bark</string>
+    <string name="section_forwarding">Forwarding</string>
+    <string name="section_runtime_status">Runtime status</string>
+    <string name="section_permissions">Permissions</string>
+    <string name="section_bluetooth_silence">Bluetooth silence</string>
+    <string name="section_app_filter">App filtering</string>
+    <string name="section_recent_status">Recent status</string>
+
+    <string name="bark_key">Bark Key</string>
+    <string name="bark_server_url">Bark server URL</string>
+    <string name="feature_system_notifications">System notifications</string>
+    <string name="feature_phone">Calls</string>
+    <string name="feature_retry">Retry failures</string>
+    <string name="feature_keep_alive_notification">Persistent status notification</string>
+    <string name="feature_silence_selected_bluetooth">Silence while selected devices are connected</string>
+
+    <string name="permission_notification_access">Notification access</string>
+    <string name="permission_runtime">Call and notification permissions</string>
+    <string name="permission_bluetooth">Bluetooth device permission</string>
+    <string name="permission_battery">Battery optimization exemption</string>
+    <string name="permission_granted">Allowed</string>
+    <string name="permission_not_granted">Not allowed</string>
+
+    <string name="action_save">Save</string>
+    <string name="action_test_push">Test push</string>
+    <string name="action_open">Open</string>
+    <string name="action_request">Request</string>
+    <string name="action_not_required">Not required</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_refreshing">Refreshing</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_done">Done</string>
+    <string name="action_close">Close</string>
+    <string name="action_add">Add</string>
+    <string name="action_remove_filter">Remove filter</string>
+    <string name="action_language">Change language</string>
+    <string name="action_help">Help</string>
+
+    <string name="status_waiting_configuration">Waiting for configuration</string>
+    <string name="status_refreshing_bluetooth">Refreshing Bluetooth devices</string>
+    <string name="status_bluetooth_refresh_failed">Failed to refresh Bluetooth devices: %1$s</string>
+    <string name="status_permissions_updated">Permission status updated</string>
+    <string name="status_bluetooth_permission_denied">Bluetooth device permission was not granted</string>
+    <string name="status_forwarding_restored">Forwarding restored: %1$s</string>
+    <string name="status_bark_key_saved">Bark Key saved</string>
+    <string name="status_sending_test">Sending test push</string>
+    <string name="status_test_success">Test push succeeded</string>
+    <string name="status_test_failed">Test push failed: %1$s</string>
+    <string name="status_logs_cleared">Logs cleared</string>
+    <string name="unknown_error">Unknown error</string>
+
+    <string name="bluetooth_permission_hint">Grant permission to show paired devices</string>
+    <string name="bluetooth_empty">No paired devices</string>
+    <string name="bluetooth_connected">Connected</string>
+    <string name="bluetooth_disconnected">Disconnected</string>
+    <string name="unknown_bluetooth_device">Unknown Bluetooth device</string>
+
+    <string name="app_filter_empty">No custom app filters</string>
+    <string name="logs_empty">No logs</string>
+    <string name="result_success">Success</string>
+    <string name="result_failure">Failed</string>
+    <string name="log_row_format">%1$s  %2$s  %3$s</string>
+
+    <string name="language_title">Language</string>
+    <string name="language_follow_system">Follow system</string>
+    <string name="language_chinese_simplified">简体中文</string>
+    <string name="language_english">English</string>
+
+    <string name="picker_title">Add app filters</string>
+    <string name="picker_search_hint">Search apps or package names</string>
+    <string name="picker_recent_apps">Recently notified</string>
+    <string name="picker_other_apps">Other apps</string>
+    <string name="picker_loading">Loading apps…</string>
+    <string name="picker_load_failed">Unable to load apps</string>
+    <string name="picker_empty">No apps available</string>
+    <plurals name="status_bluetooth_refreshed">
+        <item quantity="one">Bluetooth devices refreshed, %1$d connected</item>
+        <item quantity="other">Bluetooth devices refreshed, %1$d connected</item>
+    </plurals>
+    <plurals name="status_bluetooth_auto_updated">
+        <item quantity="one">Bluetooth status updated automatically, %1$d connected</item>
+        <item quantity="other">Bluetooth status updated automatically, %1$d connected</item>
+    </plurals>
+    <plurals name="status_filters_added">
+        <item quantity="one">Added %1$d app filter</item>
+        <item quantity="other">Added %1$d app filters</item>
+    </plurals>
+    <plurals name="picker_selected_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+
+    <string name="help_bark">Bark is an iOS push notification tool that can deliver notifications and call details forwarded from this Android device to your iPhone, iPad, or Mac through an HTTP API. Install Bark on your Apple device first: https://apps.apple.com/app/bark-custom-notifications/id1403753865. Enter your Bark Key and server URL to deliver messages to your iPhone. Test push verifies the configuration. Notification content, including messages shown by SMS apps, and call content is sent as plaintext through the configured Bark server.</string>
+    <string name="help_permissions">Notification access is required to read system notifications. Phone permission enables call forwarding. Bluetooth permission enables silence rules. Battery optimization exemption improves background reliability.</string>
+    <string name="help_bluetooth_silence">When enabled, Bark forwarding pauses while any selected Bluetooth device is connected. Connection reporting depends on the Android device and manufacturer system behavior.</string>
+    <string name="help_app_filter">Notifications from filtered apps are not forwarded. Notification Forwarder and Bark are always filtered internally to prevent forwarding loops.</string>
+
+    <string name="forward_type_test">Test</string>
+    <string name="forward_type_notification">Notification</string>
+    <string name="forward_type_incoming_call">Incoming call</string>
+    <string name="forward_type_missed_call">Missed call</string>
+    <string name="forward_source_settings">Settings</string>
+    <string name="forward_group">Android forwarding</string>
+    <string name="forward_test_body">Test push from Android “Notification Forwarder”: %1$s</string>
+    <string name="forward_notification_title">Notification: %1$s</string>
+    <string name="forward_call_title">%1$s: %2$s</string>
+    <string name="forward_label_source">Source: %1$s</string>
+    <string name="forward_label_title">Title: %1$s</string>
+    <string name="forward_label_content">Content: %1$s</string>
+    <string name="forward_label_time">Time: %1$s</string>
+    <string name="forward_label_number">Number: %1$s</string>
+    <string name="forward_unknown_number">Unknown number</string>
+    <string name="forward_bluetooth_silenced">Bluetooth silence: %1$s</string>
+    <string name="forward_bark_key_empty">Bark Key is empty</string>
+    <string name="forward_bark_received">Bark accepted the message</string>
+    <string name="forward_bark_http_error">Bark returned HTTP %1$d: %2$s</string>
+    <string name="forward_added_to_retry">%1$s, added to retry queue</string>
+    <string name="forward_retry_success">Retry succeeded</string>
+    <string name="forward_retry_limit">Retry limit reached: %1$s</string>
+    <string name="date_time_pattern">yyyy-MM-dd HH:mm:ss</string>
 </resources>
