@@ -1,6 +1,7 @@
 package com.zhaoyuchen.androidforward.data
 
 import android.content.Context
+import android.os.Build
 
 /**
  * 统一读写用户配置。Bark Key 单独走 Keystore 加密存储，其它开关使用普通偏好设置。
@@ -14,6 +15,8 @@ class AppSettingsRepository(context: Context) {
         return AppSettings(
             barkServerUrl = prefs.getString(KEY_BARK_SERVER_URL, DEFAULT_BARK_SERVER_URL)
                 ?.ifBlank { DEFAULT_BARK_SERVER_URL } ?: DEFAULT_BARK_SERVER_URL,
+            deviceName = prefs.getString(KEY_DEVICE_NAME, null)?.trim()?.ifBlank { null }
+                ?: defaultDeviceName(),
             notificationEnabled = prefs.getBoolean(KEY_NOTIFICATION_ENABLED, true),
             phoneEnabled = prefs.getBoolean(KEY_PHONE_ENABLED, true),
             retryEnabled = prefs.getBoolean(KEY_RETRY_ENABLED, true),
@@ -31,6 +34,7 @@ class AppSettingsRepository(context: Context) {
     fun save(settings: AppSettings) {
         prefs.edit()
             .putString(KEY_BARK_SERVER_URL, settings.barkServerUrl.trim().ifBlank { DEFAULT_BARK_SERVER_URL })
+            .putString(KEY_DEVICE_NAME, settings.deviceName.trim())
             .putBoolean(KEY_NOTIFICATION_ENABLED, settings.notificationEnabled)
             .putBoolean(KEY_PHONE_ENABLED, settings.phoneEnabled)
             .putBoolean(KEY_RETRY_ENABLED, settings.retryEnabled)
@@ -55,6 +59,7 @@ class AppSettingsRepository(context: Context) {
         private const val PREFS_NAME = "android_forward_settings"
         private const val KEY_BARK_KEY = "bark_key"
         private const val KEY_BARK_SERVER_URL = "bark_server_url"
+        private const val KEY_DEVICE_NAME = "device_name"
         private const val KEY_NOTIFICATION_ENABLED = "notification_enabled"
         private const val KEY_PHONE_ENABLED = "phone_enabled"
         private const val KEY_RETRY_ENABLED = "retry_enabled"
@@ -64,6 +69,19 @@ class AppSettingsRepository(context: Context) {
         private const val KEY_FILTERED_PACKAGES = "filtered_packages"
 
         const val DEFAULT_BARK_SERVER_URL = "https://api.day.app"
+
+        /** 生成默认手机名称，避免多台备用机转发到同一个 Bark 时难以区分。 */
+        fun defaultDeviceName(): String {
+            val manufacturer = Build.MANUFACTURER.trim()
+            val model = Build.MODEL.trim()
+            return when {
+                manufacturer.isBlank() && model.isBlank() -> "Android"
+                manufacturer.isBlank() -> model
+                model.isBlank() -> manufacturer
+                model.startsWith(manufacturer, ignoreCase = true) -> model
+                else -> "$manufacturer $model"
+            }
+        }
 
         /** 内置防循环过滤项始终生效，不允许用户从设置页移除。 */
         val BUILTIN_FILTERED_PACKAGES = setOf(

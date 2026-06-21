@@ -333,6 +333,13 @@ private fun AndroidForwardScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+            OutlinedTextField(
+                value = settings.deviceName,
+                onValueChange = { persist(settings.copy(deviceName = it)) },
+                label = { Text(stringResource(R.string.device_name)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(onClick = {
                     settingsRepository.saveBarkKey(barkKey)

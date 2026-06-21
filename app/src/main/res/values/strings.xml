@@ -15,6 +15,7 @@
 
     <string name="bark_key">Bark Key</string>
     <string name="bark_server_url">Bark server URL</string>
+    <string name="device_name">Phone name</string>
     <string name="feature_system_notifications">System notifications</string>
     <string name="feature_phone">Calls</string>
     <string name="feature_retry">Retry failures</string>
@@ -98,7 +99,7 @@
         <item quantity="other">%1$d selected</item>
     </plurals>
 
-    <string name="help_bark">Bark is an iOS push notification tool that can deliver notifications and call details forwarded from this Android device to your iPhone, iPad, or Mac through an HTTP API. Install Bark on your Apple device first: https://apps.apple.com/app/bark-custom-notifications/id1403753865. Enter your Bark Key and server URL to deliver messages to your iPhone. Test push verifies the configuration. Notification content, including messages shown by SMS apps, and call content is sent as plaintext through the configured Bark server.</string>
+    <string name="help_bark">Bark is an iOS push notification tool that can deliver notifications and call details forwarded from this Android device to your iPhone, iPad, or Mac through an HTTP API. Install Bark on your Apple device first: https://apps.apple.com/app/bark-custom-notifications/id1403753865. Enter your Bark Key and server URL to deliver messages to your iPhone. Test push verifies the configuration. The phone name, notification content, including messages shown by SMS apps, and call content are sent as plaintext through the configured Bark server.</string>
     <string name="help_permissions">Notification access is required to read system notifications. Phone permission enables call forwarding. Bluetooth permission enables silence rules. Battery optimization exemption improves background reliability.</string>
     <string name="help_bluetooth_silence">When enabled, Bark forwarding pauses while any selected Bluetooth device is connected. Connection reporting depends on the Android device and manufacturer system behavior.</string>
     <string name="help_app_filter">Notifications from filtered apps are not forwarded. Notification Forwarder and Bark are always filtered internally to prevent forwarding loops.</string>
@@ -110,10 +111,8 @@
     <string name="forward_source_settings">Settings</string>
     <string name="forward_group">Android forwarding</string>
     <string name="forward_test_body">Test push from Android “Notification Forwarder”: %1$s</string>
-    <string name="forward_notification_title">Notification: %1$s</string>
     <string name="forward_call_title">%1$s: %2$s</string>
     <string name="forward_label_source">Source: %1$s</string>
-    <string name="forward_label_title">Title: %1$s</string>
     <string name="forward_label_content">Content: %1$s</string>
     <string name="forward_label_time">Time: %1$s</string>
     <string name="forward_label_number">Number: %1$s</string>

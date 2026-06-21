@@ -15,6 +15,7 @@
 
     <string name="bark_key">Bark Key</string>
     <string name="bark_server_url">Bark 服务地址</string>
+    <string name="device_name">手机名称</string>
     <string name="feature_system_notifications">系统通知</string>
     <string name="feature_phone">电话</string>
     <string name="feature_retry">失败重试</string>
@@ -94,7 +95,7 @@
         <item quantity="other">已选择 %1$d 个</item>
     </plurals>
 
-    <string name="help_bark">Bark 是一款 iOS 推送通知工具，可以通过 HTTP API 把安卓端转发的通知和电话信息推送到 iPhone、iPad 或 Mac。请先在苹果设备安装 Bark，下载地址：https://apps.apple.com/app/bark-custom-notifications/id1403753865。填写 Bark Key 和服务地址后，消息才能推送到 iPhone。“测试推送”用于验证配置。通知内容（包括短信应用展示的短信通知）和电话内容会以明文发送到所配置的 Bark 服务。</string>
+    <string name="help_bark">Bark 是一款 iOS 推送通知工具，可以通过 HTTP API 把安卓端转发的通知和电话信息推送到 iPhone、iPad 或 Mac。请先在苹果设备安装 Bark，下载地址：https://apps.apple.com/app/bark-custom-notifications/id1403753865。填写 Bark Key 和服务地址后，消息才能推送到 iPhone。“测试推送”用于验证配置。手机名称、通知内容（包括短信应用展示的短信通知）和电话内容会以明文发送到所配置的 Bark 服务。</string>
     <string name="help_permissions">通知使用权用于读取系统通知；电话权限用于转发来电信息；蓝牙权限用于静默规则；加入省电白名单可以提升后台运行可靠性。</string>
     <string name="help_bluetooth_silence">开启后，只要任一所选蓝牙设备处于连接状态，应用就会暂停 Bark 转发。连接状态是否及时上报取决于安卓设备和厂商系统。</string>
     <string name="help_app_filter">被过滤应用的通知不会转发。本应用和 Bark 始终在内部过滤列表中，用于避免通知循环。</string>
@@ -106,10 +107,8 @@
     <string name="forward_source_settings">设置页</string>
     <string name="forward_group">安卓转发</string>
     <string name="forward_test_body">来自安卓“通知转发”的测试推送：%1$s</string>
-    <string name="forward_notification_title">通知：%1$s</string>
     <string name="forward_call_title">%1$s：%2$s</string>
     <string name="forward_label_source">来源：%1$s</string>
-    <string name="forward_label_title">标题：%1$s</string>
     <string name="forward_label_content">内容：%1$s</string>
     <string name="forward_label_time">时间：%1$s</string>
     <string name="forward_label_number">号码：%1$s</string>

@@ -21,18 +21,25 @@ object ForwardDispatcher {
 
     /** 设置页的测试推送，不进入失败重试队列，便于用户立即看到真实结果。 */
     fun forwardTest(context: Context): ForwardResult {
+        val settings = AppSettingsRepository(context).load()
         val now = formatNow(context)
+        val settingsSource = context.localizedString(R.string.forward_source_settings)
+        val displaySource = ForwardSourceFormatter.combineDeviceAndSource(settings.deviceName, settingsSource)
+        val body = buildString {
+            appendLine(context.localizedString(R.string.forward_label_source, displaySource))
+            append(context.localizedString(R.string.forward_test_body, now))
+        }
         val payload = ForwardPayload(
             type = ForwardType.TEST,
-            source = context.localizedString(R.string.forward_source_settings),
+            source = settingsSource,
             title = ForwardType.TEST.title(context),
-            body = context.localizedString(R.string.forward_test_body, now),
+            body = body,
             group = context.localizedString(R.string.forward_group)
         )
         return send(context, payload, allowRetry = false)
     }
 
-    /** 转发系统通知。正文包含应用名、通知标题和通知内容。 */
+    /** 转发系统通知。Bark 标题承载原通知标题，正文保留来源、内容和时间。 */
     fun forwardNotification(
         context: Context,
         appName: String,
@@ -40,22 +47,23 @@ object ForwardDispatcher {
         title: String,
         text: String
     ) {
+        val settings = AppSettingsRepository(context).load()
         val now = formatNow(context)
-        val body = buildString {
-            appendLine(context.localizedString(R.string.forward_label_source, appName))
-            if (title.isNotBlank()) {
-                appendLine(context.localizedString(R.string.forward_label_title, title))
-            }
-            if (text.isNotBlank()) {
-                appendLine(context.localizedString(R.string.forward_label_content, text))
-            }
-            append(context.localizedString(R.string.forward_label_time, now))
-        }
+        val content = NotificationForwardContentFormatter.build(
+            deviceName = settings.deviceName,
+            appName = appName,
+            notificationTitle = title,
+            notificationText = text,
+            now = now,
+            sourceLine = { context.localizedString(R.string.forward_label_source, it) },
+            contentLine = { context.localizedString(R.string.forward_label_content, it) },
+            timeLine = { context.localizedString(R.string.forward_label_time, it) }
+        )
         val payload = ForwardPayload(
             type = ForwardType.NOTIFICATION,
             source = appName,
-            title = context.localizedString(R.string.forward_notification_title, appName),
-            body = body,
+            title = content.displayTitle,
+            body = content.body,
             sourcePackage = packageName,
             group = context.localizedString(R.string.forward_group)
         )
@@ -64,14 +72,19 @@ object ForwardDispatcher {
 
     /** 转发来电或未接来电；拿不到号码时会降级显示未知号码。 */
     fun forwardCall(context: Context, missed: Boolean, number: String?) {
+        val settings = AppSettingsRepository(context).load()
         val displayNumber = number?.takeIf { it.isNotBlank() }
             ?: context.localizedString(R.string.forward_unknown_number)
         val type = if (missed) ForwardType.MISSED_CALL else ForwardType.INCOMING_CALL
         val now = formatNow(context)
-        val body = buildString {
-            appendLine(context.localizedString(R.string.forward_label_number, displayNumber))
-            append(context.localizedString(R.string.forward_label_time, now))
-        }
+        val body = CallForwardContentFormatter.buildBody(
+            deviceName = settings.deviceName,
+            displayNumber = displayNumber,
+            now = now,
+            sourceLine = { context.localizedString(R.string.forward_label_source, it) },
+            numberLine = { context.localizedString(R.string.forward_label_number, it) },
+            timeLine = { context.localizedString(R.string.forward_label_time, it) }
+        )
         val payload = ForwardPayload(
             type = type,
             source = displayNumber,
