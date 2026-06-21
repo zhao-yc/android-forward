@@ -13,3 +13,4 @@ signing/release-signing.properties
 .github-deploy-key/
 .playwright-mcp/
 .superpowers/
+.trae/
