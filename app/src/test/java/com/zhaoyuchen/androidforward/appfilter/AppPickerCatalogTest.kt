@@ -1,6 +1,8 @@
 package com.zhaoyuchen.androidforward.appfilter
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppPickerCatalogTest {
@@ -67,5 +69,28 @@ class AppPickerCatalogTest {
 
         assertEquals(listOf("com.tencent.mm"), byName.recent.map { it.packageName })
         assertEquals(listOf("com.example.reader"), byPackage.other.map { it.packageName })
+    }
+
+    @Test
+    fun `默认只显示最近通知应用并在查看更多后显示其他应用`() {
+        val sections = AppPickerSections(
+            recent = listOf(AppCandidate("com.tencent.mm", "WeChat")),
+            other = listOf(AppCandidate("com.example.reader", "Reader"))
+        )
+
+        val defaultVisible = AppPickerCatalog.visibleSections(
+            sections = sections,
+            showAllApps = false
+        )
+        val expandedVisible = AppPickerCatalog.visibleSections(
+            sections = sections,
+            showAllApps = true
+        )
+
+        assertEquals(listOf("com.tencent.mm"), defaultVisible.recent.map { it.packageName })
+        assertEquals(emptyList<String>(), defaultVisible.other.map { it.packageName })
+        assertTrue(AppPickerCatalog.hasHiddenOtherApps(sections, showAllApps = false))
+        assertEquals(listOf("com.example.reader"), expandedVisible.other.map { it.packageName })
+        assertFalse(AppPickerCatalog.hasHiddenOtherApps(sections, showAllApps = true))
     }
 }

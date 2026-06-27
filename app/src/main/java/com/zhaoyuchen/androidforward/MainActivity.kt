@@ -17,13 +17,16 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -54,6 +57,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -843,10 +847,13 @@ private fun AppPickerSheet(
     var sections by remember { mutableStateOf(AppPickerSections(emptyList(), emptyList())) }
     var query by remember { mutableStateOf("") }
     var selectedPackages by remember { mutableStateOf(emptySet<String>()) }
+    var showAllApps by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(logs, excludedPackages) {
         loading = true
         loadFailed = false
+        showAllApps = false
         val result = withContext(Dispatchers.IO) {
             runCatching {
                 AppPickerCatalog.build(
@@ -860,11 +867,25 @@ private fun AppPickerSheet(
         loading = false
     }
 
-    val visibleSections = remember(sections, query) { AppPickerCatalog.search(sections, query) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    val searchedSections = remember(sections, query) { AppPickerCatalog.search(sections, query) }
+    val visibleSections = remember(searchedSections, showAllApps) {
+        AppPickerCatalog.visibleSections(searchedSections, showAllApps)
+    }
+    val hasHiddenOtherApps = remember(searchedSections, showAllApps) {
+        AppPickerCatalog.hasHiddenOtherApps(searchedSections, showAllApps)
+    }
+    val hasVisibleApps = visibleSections.recent.isNotEmpty() || visibleSections.other.isNotEmpty()
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.92f)
+                .navigationBarsPadding()
+                .imePadding()
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -890,63 +911,96 @@ private fun AppPickerSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            when {
-                loading -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                        Spacer(modifier = Modifier.size(12.dp))
-                        Text(stringResource(R.string.picker_loading))
-                    }
-                }
-                loadFailed -> Text(
-                    stringResource(R.string.picker_load_failed),
-                    color = MaterialTheme.colorScheme.error
-                )
-                visibleSections.recent.isEmpty() && visibleSections.other.isEmpty() -> Text(
-                    stringResource(R.string.picker_empty),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                else -> LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp)) {
-                    if (visibleSections.recent.isNotEmpty()) {
-                        item {
-                            PickerGroupTitle(stringResource(R.string.picker_recent_apps))
-                        }
-                        items(visibleSections.recent, key = AppCandidate::packageName) { app ->
-                            AppPickerRow(
-                                context = context,
-                                app = app,
-                                selected = app.packageName in selectedPackages,
-                                onSelectedChange = { selected ->
-                                    selectedPackages = if (selected) {
-                                        selectedPackages + app.packageName
-                                    } else {
-                                        selectedPackages - app.packageName
-                                    }
-                                }
-                            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                when {
+                    loading -> {
+                        Row(
+                            modifier = Modifier.align(Alignment.Center),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            Spacer(modifier = Modifier.size(12.dp))
+                            Text(stringResource(R.string.picker_loading))
                         }
                     }
-                    if (visibleSections.other.isNotEmpty()) {
-                        item {
-                            PickerGroupTitle(stringResource(R.string.picker_other_apps))
-                        }
-                        items(visibleSections.other, key = AppCandidate::packageName) { app ->
-                            AppPickerRow(
-                                context = context,
-                                app = app,
-                                selected = app.packageName in selectedPackages,
-                                onSelectedChange = { selected ->
-                                    selectedPackages = if (selected) {
-                                        selectedPackages + app.packageName
-                                    } else {
-                                        selectedPackages - app.packageName
-                                    }
-                                }
+                    loadFailed -> Text(
+                        stringResource(R.string.picker_load_failed),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    !hasVisibleApps -> {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                stringResource(R.string.picker_empty),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            if (hasHiddenOtherApps) {
+                                OutlinedButton(
+                                    onClick = { showAllApps = true },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(stringResource(R.string.picker_show_more_apps))
+                                }
+                            }
+                        }
+                    }
+                    else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        if (visibleSections.recent.isNotEmpty()) {
+                            item {
+                                PickerGroupTitle(stringResource(R.string.picker_recent_apps))
+                            }
+                            items(visibleSections.recent, key = AppCandidate::packageName) { app ->
+                                AppPickerRow(
+                                    context = context,
+                                    app = app,
+                                    selected = app.packageName in selectedPackages,
+                                    onSelectedChange = { selected ->
+                                        selectedPackages = if (selected) {
+                                            selectedPackages + app.packageName
+                                        } else {
+                                            selectedPackages - app.packageName
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                        if (visibleSections.other.isNotEmpty()) {
+                            item {
+                                PickerGroupTitle(stringResource(R.string.picker_other_apps))
+                            }
+                            items(visibleSections.other, key = AppCandidate::packageName) { app ->
+                                AppPickerRow(
+                                    context = context,
+                                    app = app,
+                                    selected = app.packageName in selectedPackages,
+                                    onSelectedChange = { selected ->
+                                        selectedPackages = if (selected) {
+                                            selectedPackages + app.packageName
+                                        } else {
+                                            selectedPackages - app.packageName
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                        if (hasHiddenOtherApps) {
+                            item {
+                                OutlinedButton(
+                                    onClick = { showAllApps = true },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp)
+                                ) {
+                                    Text(stringResource(R.string.picker_show_more_apps))
+                                }
+                            }
                         }
                     }
                 }

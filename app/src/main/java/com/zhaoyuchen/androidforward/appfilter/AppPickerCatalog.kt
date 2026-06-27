@@ -56,4 +56,14 @@ object AppPickerCatalog {
             other = sections.other.matching()
         )
     }
+
+    /** 根据“查看更多应用”开关返回当前应该展示的分组。 */
+    fun visibleSections(sections: AppPickerSections, showAllApps: Boolean): AppPickerSections {
+        return if (showAllApps) sections else sections.copy(other = emptyList())
+    }
+
+    /** 判断当前搜索结果里是否还有被“查看更多应用”折叠起来的其他应用。 */
+    fun hasHiddenOtherApps(sections: AppPickerSections, showAllApps: Boolean): Boolean {
+        return !showAllApps && sections.other.isNotEmpty()
+    }
 }

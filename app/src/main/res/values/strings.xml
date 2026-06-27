@@ -82,6 +82,7 @@
     <string name="picker_loading">Loading apps…</string>
     <string name="picker_load_failed">Unable to load apps</string>
     <string name="picker_empty">No apps available</string>
+    <string name="picker_show_more_apps">Show more apps</string>
     <plurals name="status_bluetooth_refreshed">
         <item quantity="one">Bluetooth devices refreshed, %1$d connected</item>
         <item quantity="other">Bluetooth devices refreshed, %1$d connected</item>

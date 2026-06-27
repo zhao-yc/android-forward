@@ -82,6 +82,7 @@
     <string name="picker_loading">正在加载应用…</string>
     <string name="picker_load_failed">无法加载应用列表</string>
     <string name="picker_empty">暂无可选应用</string>
+    <string name="picker_show_more_apps">查看更多应用</string>
     <plurals name="status_bluetooth_refreshed">
         <item quantity="other">蓝牙设备列表已刷新，当前连接 %1$d 个</item>
     </plurals>
